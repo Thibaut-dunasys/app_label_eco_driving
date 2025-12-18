@@ -11,11 +11,63 @@
 </head>
 <body>
   <div id="root"></div>
+  
   <script type="text/babel">
-    import React, { useState, useEffect } from 'react';
-    import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2 } from 'lucide-react';
-    
-    export default function DrivingLabelingApp() {
+    const { useState, useEffect } = React;
+
+    // Importer les icônes Lucide depuis CDN
+    const Play = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+    );
+
+    const Square = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      </svg>
+    );
+
+    const Download = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    );
+
+    const ArrowLeft = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+    );
+
+    const Clock = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+    );
+
+    const Database = ({ size = 24, className = "", strokeWidth = 2 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+      </svg>
+    );
+
+    const Trash2 = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+    );
+
+    function DrivingLabelingApp() {
       const [currentPage, setCurrentPage] = useState('home');
       const [sessions, setSessions] = useState([]);
       const [isRunning, setIsRunning] = useState(false);
@@ -30,7 +82,8 @@
       const [imuData, setImuData] = useState({ ax: 0, ay: 0, az: 0, gx: 0, gy: 0, gz: 0 });
       const [imuPermission, setImuPermission] = useState(false);
       const [imuHistory, setImuHistory] = useState([]);
-    
+      const [uploadStatus, setUploadStatus] = useState('idle');
+
       const labels = [
         { id: 'non-aggressive', name: 'Non agressive', color: 'bg-emerald-500' },
         { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-amber-500' },
@@ -40,11 +93,11 @@
         { id: 'braking', name: 'Freinage agressif', color: 'bg-purple-500' },
         { id: 'acceleration', name: 'Accélération agressive', color: 'bg-blue-500' }
       ];
-    
+
       useEffect(() => {
         loadSessions();
       }, []);
-    
+
       const loadSessions = async () => {
         try {
           const result = await window.storage.get('driving-sessions');
@@ -56,7 +109,7 @@
           setSessions([]);
         }
       };
-    
+
       const saveSessions = async (newSessions) => {
         try {
           await window.storage.set('driving-sessions', JSON.stringify(newSessions));
@@ -65,7 +118,7 @@
           console.error('Erreur de sauvegarde:', error);
         }
       };
-    
+
       useEffect(() => {
         let interval;
         if (isRunning) {
@@ -75,11 +128,10 @@
         }
         return () => clearInterval(interval);
       }, [isRunning, startTime]);
-    
-      // Gestion de la centrale inertielle
+
       useEffect(() => {
         if (!isRunning) return;
-    
+
         const handleMotion = (event) => {
           if (event.acceleration && event.rotationRate) {
             setImuData({
@@ -92,8 +144,7 @@
             });
           }
         };
-    
-        // Demander la permission pour iOS 13+
+
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           DeviceMotionEvent.requestPermission()
             .then(permissionState => {
@@ -104,20 +155,18 @@
             })
             .catch(console.error);
         } else {
-          // Autres navigateurs/appareils
           window.addEventListener('devicemotion', handleMotion);
           setImuPermission(true);
         }
-    
+
         return () => {
           window.removeEventListener('devicemotion', handleMotion);
         };
       }, [isRunning]);
-    
-      // Enregistrer les données IMU toutes les secondes
+
       useEffect(() => {
         if (!isRunning || Object.keys(activeLabels).length === 0) return;
-    
+
         const interval = setInterval(() => {
           setImuHistory(prev => [...prev, {
             timestamp: Date.now(),
@@ -126,10 +175,10 @@
             gz: imuData.gz
           }]);
         }, 1000);
-    
+
         return () => clearInterval(interval);
       }, [isRunning, activeLabels, imuData]);
-    
+
       const formatTime = (ms) => {
         const totalSeconds = Math.floor(ms / 1000);
         const minutes = Math.floor(totalSeconds / 60);
@@ -137,7 +186,7 @@
         const milliseconds = Math.floor((ms % 1000) / 10);
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
       };
-    
+
       const formatDateTime = (date) => {
         return new Date(date).toLocaleString('fr-FR', {
           day: '2-digit',
@@ -148,7 +197,7 @@
           second: '2-digit'
         });
       };
-    
+
       const startSession = () => {
         const now = new Date();
         setIsRunning(true);
@@ -161,15 +210,14 @@
         setCurrentSessionData(null);
         setImuHistory([]);
       };
-    
+
       const toggleLabel = (labelId) => {
         if (!isRunning) return;
-    
+
         const currentTime = elapsedTime;
         const currentTimestamp = Date.now();
         const newRecordings = [...recordings];
         
-        // Ajouter "Initialisation" si c'est le premier label
         if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
           const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
           newRecordings.push({
@@ -183,12 +231,10 @@
           });
         }
         
-        // Si le label est déjà actif, le fermer
         if (activeLabels[labelId]) {
           const startTimeLabel = activeLabels[labelId].time;
           const startTimestamp = activeLabels[labelId].timestamp;
           
-          // Filtrer les données IMU pour cette période
           const periodImuData = imuHistory.filter(d => 
             d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
           );
@@ -206,7 +252,6 @@
           setActiveLabels({});
           setRecordings(newRecordings);
         } else {
-          // Fermer tous les labels actifs avant d'activer le nouveau
           Object.keys(activeLabels).forEach(activeLabelId => {
             const startTimeLabel = activeLabels[activeLabelId].time;
             const startTimestamp = activeLabels[activeLabelId].timestamp;
@@ -226,16 +271,16 @@
             });
           });
           
-          // Activer le nouveau label
           setActiveLabels({ [labelId]: { time: currentTime, timestamp: currentTimestamp } });
           setRecordings(newRecordings);
         }
       };
-    
+
       const endSession = () => {
         const finalRecordings = [...recordings];
         const currentTime = elapsedTime;
         const endDate = new Date();
+        const currentTimestamp = Date.now();
         
         if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
           finalRecordings.push({
@@ -244,30 +289,40 @@
             endTime: formatTime(currentTime),
             duration: formatTime(currentTime),
             absoluteStartTime: sessionStartDate,
-            absoluteEndTime: endDate
+            absoluteEndTime: endDate,
+            imuData: imuHistory
           });
         } else {
           Object.keys(activeLabels).forEach(labelId => {
+            const startTimeLabel = activeLabels[labelId].time;
+            const startTimestamp = activeLabels[labelId].timestamp;
+            
+            const periodImuData = imuHistory.filter(d => 
+              d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
+            );
+            
             finalRecordings.push({
               label: labels.find(l => l.id === labelId).name,
-              startTime: formatTime(activeLabels[labelId]),
+              startTime: formatTime(startTimeLabel),
               endTime: formatTime(currentTime),
-              duration: formatTime(currentTime - activeLabels[labelId]),
-              absoluteStartTime: new Date(sessionStartDate.getTime() + activeLabels[labelId]),
-              absoluteEndTime: endDate
+              duration: formatTime(currentTime - startTimeLabel),
+              absoluteStartTime: new Date(sessionStartDate.getTime() + startTimeLabel),
+              absoluteEndTime: endDate,
+              imuData: periodImuData
             });
           });
         }
-    
+
         finalRecordings.push({
           label: 'Fin',
           startTime: formatTime(currentTime),
           endTime: formatTime(currentTime),
           duration: '00:00.00',
           absoluteStartTime: endDate,
-          absoluteEndTime: endDate
+          absoluteEndTime: endDate,
+          imuData: []
         });
-    
+
         const newSession = {
           id: Date.now(),
           startDate: sessionStartDate,
@@ -275,7 +330,7 @@
           duration: formatTime(currentTime),
           recordings: finalRecordings
         };
-    
+
         const updatedSessions = [newSession, ...sessions];
         saveSessions(updatedSessions);
         
@@ -285,7 +340,7 @@
         setSessionEnded(true);
         setCurrentSessionData(newSession);
       };
-    
+
       const downloadCSV = (data, session) => {
         const removeAccents = (str) => {
           return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -303,7 +358,7 @@
             return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
           })
         ].join('\n');
-    
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
@@ -314,24 +369,71 @@
         link.click();
         document.body.removeChild(link);
       };
-    
+
+      const uploadToDrive = async (data, session) => {
+        setUploadStatus('uploading');
+        
+        const removeAccents = (str) => {
+          return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        };
+        
+        const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+        
+        const csvContent = [
+          headers.join(','),
+          ...data.map(row => {
+            const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+            const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+            const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+            
+            return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+          })
+        ].join('\n');
+
+        const fileName = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+
+        try {
+          const response = await fetch('/api/upload-to-drive', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              csvContent,
+              fileName
+            })
+          });
+
+          if (response.ok) {
+            setUploadStatus('success');
+            setTimeout(() => setUploadStatus('idle'), 3000);
+          } else {
+            throw new Error('Upload failed');
+          }
+        } catch (error) {
+          console.error('Erreur upload:', error);
+          setUploadStatus('error');
+          downloadCSV(data, session);
+          setTimeout(() => setUploadStatus('idle'), 3000);
+        }
+      };
+
       const viewSessionDetails = (session) => {
         setSelectedSession(session);
         setCurrentPage('details');
       };
-    
+
       const downloadSessionCSV = (session) => {
         downloadCSV(session.recordings, session);
       };
-    
+
       const deleteSession = async (sessionId) => {
         if (confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
           const updatedSessions = sessions.filter(s => s.id !== sessionId);
           await saveSessions(updatedSessions);
         }
       };
-    
-      // Page d'accueil
+
       if (currentPage === 'home') {
         return (
           <div className="min-h-screen bg-slate-700 p-8">
@@ -342,7 +444,7 @@
                 </h1>
                 <p className="text-slate-300 font-mono text-sm">Système de collecte de données comportementales</p>
               </div>
-    
+
               <div className="text-center mb-12">
                 <button
                   onClick={() => setCurrentPage('labeling')}
@@ -352,7 +454,7 @@
                   Nouveau trajet
                 </button>
               </div>
-    
+
               <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8">
                 <h2 className="text-2xl font-semibold text-white mb-6">Historique des trajets</h2>
                 
@@ -394,9 +496,10 @@
                             <button
                               onClick={() => downloadSessionCSV(session)}
                               className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-5 py-2 rounded-md font-semibold inline-flex items-center gap-1.5 transition-all text-sm shadow-md"
+                              title="Télécharger localement"
                             >
                               <Download size={14} />
-                              Export
+                              Local
                             </button>
                             <button
                               onClick={() => deleteSession(session.id)}
@@ -416,8 +519,7 @@
           </div>
         );
       }
-    
-      // Page de détails
+
       if (currentPage === 'details' && selectedSession) {
         return (
           <div className="min-h-screen bg-slate-700 p-8">
@@ -429,7 +531,7 @@
                 <ArrowLeft size={18} />
                 Retour
               </button>
-    
+
               <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8">
                 <h2 className="text-3xl font-semibold text-white mb-8">Détails du trajet</h2>
                 
@@ -451,7 +553,7 @@
                     <p className="text-white text-lg font-semibold font-mono">{selectedSession.recordings.length}</p>
                   </div>
                 </div>
-    
+
                 <h3 className="text-xl font-semibold text-white mb-4">Événements</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {selectedSession.recordings.map((rec, idx) => (
@@ -465,14 +567,14 @@
                     </div>
                   ))}
                 </div>
-    
+
                 <div className="mt-8 text-center">
                   <button
-                    onClick={() => downloadSessionCSV(selectedSession)}
+                    onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-3 rounded-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
                   >
                     <Download size={18} />
-                    Télécharger le CSV
+                    Télécharger localement
                   </button>
                 </div>
               </div>
@@ -480,8 +582,7 @@
           </div>
         );
       }
-    
-      // Page de labelisation
+
       return (
         <div className="min-h-screen bg-slate-700 p-8">
           <div className="max-w-4xl mx-auto">
@@ -501,21 +602,21 @@
               <ArrowLeft size={18} />
               Retour
             </button>
-    
+
             <div className="text-center mb-8">
               <h1 className="text-3xl font-bold text-white mb-2">
                 Nouvelle session
               </h1>
               <p className="text-slate-300 text-sm font-mono">Enregistrement en temps réel</p>
             </div>
-    
+
             {sessionStartDate && (
               <div className="bg-slate-800 rounded-lg p-4 mb-6 text-center border border-slate-600">
                 <p className="text-xs text-slate-400 font-mono mb-1">Début de session</p>
                 <p className="text-lg font-semibold text-white font-mono">{formatDateTime(sessionStartDate)}</p>
               </div>
             )}
-    
+
             <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-10 mb-6">
               <div className="text-center mb-6">
                 <div className="text-6xl font-mono font-bold text-white mb-6">
@@ -540,19 +641,34 @@
                   </button>
                 ) : (
                   <div className="space-y-4">
-                    <p className="text-green-400 text-lg font-semibold">Session terminée</p>
-                    <button
-                      onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
-                      className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white px-12 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
-                    >
-                      <Download size={22} />
-                      Télécharger
-                    </button>
+                    {uploadStatus === 'idle' && <p className="text-green-400 text-lg font-semibold">Session terminée</p>}
+                    {uploadStatus === 'uploading' && <p className="text-blue-400 text-lg font-semibold">⏳ Envoi vers Drive...</p>}
+                    {uploadStatus === 'success' && <p className="text-green-400 text-lg font-semibold">✓ Envoyé sur Drive !</p>}
+                    {uploadStatus === 'error' && <p className="text-orange-400 text-lg font-semibold">⚠️ Erreur - Téléchargement local</p>}
+                    
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => uploadToDrive(currentSessionData.recordings, currentSessionData)}
+                        disabled={uploadStatus === 'uploading'}
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white px-12 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
+                      >
+                        <Download size={22} />
+                        {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer sur Drive'}
+                      </button>
+                      <button
+                        onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 transition-all"
+                        title="Télécharger localement"
+                      >
+                        <Download size={18} />
+                        Local
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-    
+
             <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8">
               <h2 className="text-xl font-semibold text-white mb-6">Labels de conduite</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -583,8 +699,7 @@
                 ))}
               </div>
             </div>
-    
-            {/* Données de la centrale inertielle */}
+
             {isRunning && imuPermission && (
               <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-6 mt-6">
                 <div className="flex justify-between items-center mb-4">
@@ -621,7 +736,7 @@
                 </div>
               </div>
             )}
-    
+
             {recordings.length > 0 && (
               <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8 mt-6">
                 <h2 className="text-xl font-semibold text-white mb-4">Événements enregistrés</h2>
@@ -643,6 +758,8 @@
         </div>
       );
     }
+
+    ReactDOM.render(<DrivingLabelingApp />, document.getElementById('root'));
   </script>
 </body>
 </html>
