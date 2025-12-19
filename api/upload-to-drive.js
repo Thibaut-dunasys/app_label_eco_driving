@@ -1,83 +1,766 @@
-// api/upload-to-drive.js
-// Ce fichier doit être placé dans le dossier /api/ de votre projet Vercel
-//deploiment ooo
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Labelisation de Conduite</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-const { google } = require('googleapis');
+    // Icônes SVG
+    const Play = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+    );
 
-export default async function handler(req, res) {
-  // Autoriser uniquement les requêtes POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+    const Square = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      </svg>
+    );
 
-  try {
-    const { csvContent, fileName } = req.body;
+    const Download = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+    );
 
-    if (!csvContent || !fileName) {
-      return res.status(400).json({ error: 'Missing csvContent or fileName' });
+    const ArrowLeft = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"></line>
+        <polyline points="12 19 5 12 12 5"></polyline>
+      </svg>
+    );
+
+    const Clock = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+    );
+
+    const Database = ({ size = 24, className = "", strokeWidth = 2 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+      </svg>
+    );
+
+    const Trash2 = ({ size = 24 }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        <line x1="10" y1="11" x2="10" y2="17"></line>
+        <line x1="14" y1="11" x2="14" y2="17"></line>
+      </svg>
+    );
+
+    function DrivingLabelingApp() {
+      const [currentPage, setCurrentPage] = useState('home');
+      const [sessions, setSessions] = useState([]);
+      const [isRunning, setIsRunning] = useState(false);
+      const [elapsedTime, setElapsedTime] = useState(0);
+      const [startTime, setStartTime] = useState(null);
+      const [sessionStartDate, setSessionStartDate] = useState(null);
+      const [activeLabels, setActiveLabels] = useState({});
+      const [recordings, setRecordings] = useState([]);
+      const [selectedSession, setSelectedSession] = useState(null);
+      const [sessionEnded, setSessionEnded] = useState(false);
+      const [currentSessionData, setCurrentSessionData] = useState(null);
+      const [imuData, setImuData] = useState({ ax: 0, ay: 0, az: 0, gx: 0, gy: 0, gz: 0 });
+      const [imuPermission, setImuPermission] = useState(false);
+      const [imuHistory, setImuHistory] = useState([]);
+      const [uploadStatus, setUploadStatus] = useState('idle');
+
+      const labels = [
+        { id: 'non-aggressive', name: 'Non agressive', color: 'bg-emerald-500' },
+        { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-amber-500' },
+        { id: 'left-turn', name: 'Virage agressif à gauche', color: 'bg-orange-500' },
+        { id: 'right-lane', name: 'Changement de voie agressif à droite', color: 'bg-rose-500' },
+        { id: 'left-lane', name: 'Changement de voie agressif à gauche', color: 'bg-red-500' },
+        { id: 'braking', name: 'Freinage agressif', color: 'bg-purple-500' },
+        { id: 'acceleration', name: 'Accélération agressive', color: 'bg-blue-500' }
+      ];
+
+      useEffect(() => {
+        loadSessions();
+      }, []);
+
+      const loadSessions = () => {
+        try {
+          const stored = localStorage.getItem('driving-sessions');
+          if (stored) {
+            setSessions(JSON.parse(stored));
+          }
+        } catch (error) {
+          console.error('Erreur chargement sessions:', error);
+          setSessions([]);
+        }
+      };
+
+      const saveSessions = (newSessions) => {
+        try {
+          localStorage.setItem('driving-sessions', JSON.stringify(newSessions));
+          setSessions(newSessions);
+        } catch (error) {
+          console.error('Erreur sauvegarde:', error);
+        }
+      };
+
+      useEffect(() => {
+        let interval;
+        if (isRunning) {
+          interval = setInterval(() => {
+            setElapsedTime(Date.now() - startTime);
+          }, 10);
+        }
+        return () => clearInterval(interval);
+      }, [isRunning, startTime]);
+
+      useEffect(() => {
+        if (!isRunning) return;
+
+        const handleMotion = (event) => {
+          if (event.acceleration && event.rotationRate) {
+            setImuData({
+              ax: event.acceleration.x?.toFixed(2) || 0,
+              ay: event.acceleration.y?.toFixed(2) || 0,
+              az: event.acceleration.z?.toFixed(2) || 0,
+              gx: event.rotationRate.alpha?.toFixed(2) || 0,
+              gy: event.rotationRate.beta?.toFixed(2) || 0,
+              gz: event.rotationRate.gamma?.toFixed(2) || 0
+            });
+          }
+        };
+
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          DeviceMotionEvent.requestPermission()
+            .then(permissionState => {
+              if (permissionState === 'granted') {
+                window.addEventListener('devicemotion', handleMotion);
+                setImuPermission(true);
+              }
+            })
+            .catch(console.error);
+        } else {
+          window.addEventListener('devicemotion', handleMotion);
+          setImuPermission(true);
+        }
+
+        return () => {
+          window.removeEventListener('devicemotion', handleMotion);
+        };
+      }, [isRunning]);
+
+      useEffect(() => {
+        if (!isRunning || Object.keys(activeLabels).length === 0) return;
+
+        const interval = setInterval(() => {
+          setImuHistory(prev => [...prev, {
+            timestamp: Date.now(),
+            ax: imuData.ax,
+            ay: imuData.ay,
+            gz: imuData.gz
+          }]);
+        }, 1000);
+
+        return () => clearInterval(interval);
+      }, [isRunning, activeLabels, imuData]);
+
+      const formatTime = (ms) => {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const milliseconds = Math.floor((ms % 1000) / 10);
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
+      };
+
+      const formatDateTime = (date) => {
+        return new Date(date).toLocaleString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      };
+
+      const startSession = () => {
+        const now = new Date();
+        setIsRunning(true);
+        setStartTime(Date.now());
+        setSessionStartDate(now);
+        setElapsedTime(0);
+        setActiveLabels({});
+        setRecordings([]);
+        setSessionEnded(false);
+        setCurrentSessionData(null);
+        setImuHistory([]);
+        setUploadStatus('idle');
+      };
+
+      const toggleLabel = (labelId) => {
+        if (!isRunning) return;
+
+        const currentTime = elapsedTime;
+        const currentTimestamp = Date.now();
+        const newRecordings = [...recordings];
+        
+        if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
+          const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
+          newRecordings.push({
+            label: 'Initialisation',
+            startTime: formatTime(0),
+            endTime: formatTime(currentTime),
+            duration: formatTime(currentTime),
+            absoluteStartTime: sessionStartDate,
+            absoluteEndTime: new Date(sessionStartDate.getTime() + currentTime),
+            imuData: initImuData
+          });
+        }
+        
+        if (activeLabels[labelId]) {
+          const startTimeLabel = activeLabels[labelId].time;
+          const startTimestamp = activeLabels[labelId].timestamp;
+          
+          const periodImuData = imuHistory.filter(d => 
+            d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
+          );
+          
+          newRecordings.push({
+            label: labels.find(l => l.id === labelId).name,
+            startTime: formatTime(startTimeLabel),
+            endTime: formatTime(currentTime),
+            duration: formatTime(currentTime - startTimeLabel),
+            absoluteStartTime: new Date(sessionStartDate.getTime() + startTimeLabel),
+            absoluteEndTime: new Date(sessionStartDate.getTime() + currentTime),
+            imuData: periodImuData
+          });
+          
+          setActiveLabels({});
+          setRecordings(newRecordings);
+        } else {
+          Object.keys(activeLabels).forEach(activeLabelId => {
+            const startTimeLabel = activeLabels[activeLabelId].time;
+            const startTimestamp = activeLabels[activeLabelId].timestamp;
+            
+            const periodImuData = imuHistory.filter(d => 
+              d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
+            );
+            
+            newRecordings.push({
+              label: labels.find(l => l.id === activeLabelId).name,
+              startTime: formatTime(startTimeLabel),
+              endTime: formatTime(currentTime),
+              duration: formatTime(currentTime - startTimeLabel),
+              absoluteStartTime: new Date(sessionStartDate.getTime() + startTimeLabel),
+              absoluteEndTime: new Date(sessionStartDate.getTime() + currentTime),
+              imuData: periodImuData
+            });
+          });
+          
+          setActiveLabels({ [labelId]: { time: currentTime, timestamp: currentTimestamp } });
+          setRecordings(newRecordings);
+        }
+      };
+
+      const endSession = () => {
+        const finalRecordings = [...recordings];
+        const currentTime = elapsedTime;
+        const endDate = new Date();
+        const currentTimestamp = Date.now();
+        
+        if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
+          finalRecordings.push({
+            label: 'Initialisation',
+            startTime: formatTime(0),
+            endTime: formatTime(currentTime),
+            duration: formatTime(currentTime),
+            absoluteStartTime: sessionStartDate,
+            absoluteEndTime: endDate,
+            imuData: imuHistory
+          });
+        } else {
+          Object.keys(activeLabels).forEach(labelId => {
+            const startTimeLabel = activeLabels[labelId].time;
+            const startTimestamp = activeLabels[labelId].timestamp;
+            
+            const periodImuData = imuHistory.filter(d => 
+              d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
+            );
+            
+            finalRecordings.push({
+              label: labels.find(l => l.id === labelId).name,
+              startTime: formatTime(startTimeLabel),
+              endTime: formatTime(currentTime),
+              duration: formatTime(currentTime - startTimeLabel),
+              absoluteStartTime: new Date(sessionStartDate.getTime() + startTimeLabel),
+              absoluteEndTime: endDate,
+              imuData: periodImuData
+            });
+          });
+        }
+
+        finalRecordings.push({
+          label: 'Fin',
+          startTime: formatTime(currentTime),
+          endTime: formatTime(currentTime),
+          duration: '00:00.00',
+          absoluteStartTime: endDate,
+          absoluteEndTime: endDate,
+          imuData: []
+        });
+
+        const newSession = {
+          id: Date.now(),
+          startDate: sessionStartDate,
+          endDate: endDate,
+          duration: formatTime(currentTime),
+          recordings: finalRecordings
+        };
+
+        const updatedSessions = [newSession, ...sessions];
+        saveSessions(updatedSessions);
+        
+        setRecordings(finalRecordings);
+        setActiveLabels({});
+        setIsRunning(false);
+        setSessionEnded(true);
+        setCurrentSessionData(newSession);
+      };
+
+      const downloadCSV = (data, session) => {
+        const removeAccents = (str) => {
+          return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        };
+        
+        const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+        
+        const csvContent = [
+          headers.join(','),
+          ...data.map(row => {
+            const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+            const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+            const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+            
+            return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+          })
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const uploadToDrive = async (data, session) => {
+        setUploadStatus('uploading');
+        
+        const removeAccents = (str) => {
+          return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        };
+        
+        const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+        
+        const csvContent = [
+          headers.join(','),
+          ...data.map(row => {
+            const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+            const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+            const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+            
+            return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+          })
+        ].join('\n');
+
+        const fileName = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+
+        try {
+          const response = await fetch('/api/upload-to-drive', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              csvContent,
+              fileName
+            })
+          });
+
+          if (response.ok) {
+            setUploadStatus('success');
+            setTimeout(() => setUploadStatus('idle'), 3000);
+          } else {
+            throw new Error('Upload failed');
+          }
+        } catch (error) {
+          console.error('Erreur upload:', error);
+          setUploadStatus('error');
+          downloadCSV(data, session);
+          setTimeout(() => setUploadStatus('idle'), 3000);
+        }
+      };
+
+      const viewSessionDetails = (session) => {
+        setSelectedSession(session);
+        setCurrentPage('details');
+      };
+
+      const downloadSessionCSV = (session) => {
+        downloadCSV(session.recordings, session);
+      };
+
+      const deleteSession = (sessionId) => {
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
+          const updatedSessions = sessions.filter(s => s.id !== sessionId);
+          saveSessions(updatedSessions);
+        }
+      };
+
+      if (currentPage === 'home') {
+        return (
+          <div className="min-h-screen bg-slate-700 p-8">
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-12 text-center">
+                <h1 className="text-4xl font-bold text-white mb-2">
+                  Labelisation de conduite
+                </h1>
+                <p className="text-slate-300 font-mono text-sm">Système de collecte de données comportementales</p>
+              </div>
+
+              <div className="text-center mb-12">
+                <button
+                  onClick={() => setCurrentPage('labeling')}
+                  className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white px-10 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
+                >
+                  <Play size={20} />
+                  Nouveau trajet
+                </button>
+              </div>
+
+              <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8">
+                <h2 className="text-2xl font-semibold text-white mb-6">Historique des trajets</h2>
+                
+                {sessions.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400">
+                    <Database className="mx-auto mb-3" size={48} strokeWidth={1.5} />
+                    <p className="text-lg">Aucun trajet enregistré</p>
+                    <p className="mt-1 text-sm">Commencez un nouveau trajet pour créer votre premier enregistrement</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {sessions.map((session, idx) => (
+                      <div key={session.id} className="bg-slate-700 border border-slate-600 rounded-lg p-5 hover:border-slate-500 hover:shadow-md transition-all">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <span className="text-white font-medium font-mono">
+                                {formatDateTime(session.startDate)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-6 text-slate-300 text-sm font-mono">
+                              <div className="flex items-center gap-1.5">
+                                <Clock size={14} />
+                                <span>{session.duration}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Database size={14} />
+                                <span>{session.recordings.length} events</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => viewSessionDetails(session)}
+                              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-5 py-2 rounded-md font-semibold transition-all text-sm shadow-md"
+                            >
+                              Analyser
+                            </button>
+                            <button
+                              onClick={() => downloadSessionCSV(session)}
+                              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-5 py-2 rounded-md font-semibold inline-flex items-center gap-1.5 transition-all text-sm shadow-md"
+                              title="Télécharger localement"
+                            >
+                              <Download size={14} />
+                              Local
+                            </button>
+                            <button
+                              onClick={() => deleteSession(session.id)}
+                              className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white px-3 py-2 rounded-md font-semibold transition-all text-sm shadow-md"
+                              title="Supprimer ce trajet"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (currentPage === 'details' && selectedSession) {
+        return (
+          <div className="min-h-screen bg-slate-700 p-8">
+            <div className="max-w-5xl mx-auto">
+              <button
+                onClick={() => setCurrentPage('home')}
+                className="mb-6 text-slate-300 hover:text-white inline-flex items-center gap-2 transition-colors font-medium"
+              >
+                <ArrowLeft size={18} />
+                Retour
+              </button>
+
+              <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8">
+                <h2 className="text-3xl font-semibold text-white mb-8">Détails du trajet</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  <div className="bg-slate-700 rounded-lg p-5 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Heure de début</p>
+                    <p className="text-white text-lg font-semibold font-mono">{formatDateTime(selectedSession.startDate)}</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-5 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Heure de fin</p>
+                    <p className="text-white text-lg font-semibold font-mono">{formatDateTime(selectedSession.endDate)}</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-5 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Durée totale</p>
+                    <p className="text-white text-lg font-semibold font-mono">{selectedSession.duration}</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-5 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Événements enregistrés</p>
+                    <p className="text-white text-lg font-semibold font-mono">{selectedSession.recordings.length}</p>
+                  </div>
+                </div>
+
+                <h3 className="text-xl font-semibold text-white mb-4">Événements</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {selectedSession.recordings.map((rec, idx) => (
+                    <div key={idx} className="bg-slate-700 p-4 rounded-lg border border-slate-600">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-white">{rec.label}</span>
+                        <span className="text-sm text-slate-300 font-mono">
+                          {rec.startTime} → {rec.endTime} ({rec.duration})
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-8 text-center">
+                  <button
+                    onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-3 rounded-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
+                  >
+                    <Download size={18} />
+                    Télécharger localement
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen bg-slate-700 p-8">
+          <div className="max-w-4xl mx-auto">
+            <button
+              onClick={() => {
+                if (isRunning) {
+                  if (confirm('Voulez-vous vraiment quitter ? Les données en cours seront perdues.')) {
+                    setIsRunning(false);
+                    setCurrentPage('home');
+                  }
+                } else {
+                  setCurrentPage('home');
+                }
+              }}
+              className="mb-6 text-slate-300 hover:text-white inline-flex items-center gap-2 transition-colors font-medium"
+            >
+              <ArrowLeft size={18} />
+              Retour
+            </button>
+
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Nouvelle session
+              </h1>
+              <p className="text-slate-300 text-sm font-mono">Enregistrement en temps réel</p>
+            </div>
+
+            {sessionStartDate && (
+              <div className="bg-slate-800 rounded-lg p-4 mb-6 text-center border border-slate-600">
+                <p className="text-xs text-slate-400 font-mono mb-1">Début de session</p>
+                <p className="text-lg font-semibold text-white font-mono">{formatDateTime(sessionStartDate)}</p>
+              </div>
+            )}
+
+            <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-10 mb-6">
+              <div className="text-center mb-6">
+                <div className="text-6xl font-mono font-bold text-white mb-6">
+                  {formatTime(elapsedTime)}
+                </div>
+                
+                {!isRunning && !sessionEnded ? (
+                  <button
+                    onClick={startSession}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-12 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
+                  >
+                    <Play size={22} />
+                    Démarrer
+                  </button>
+                ) : isRunning ? (
+                  <button
+                    onClick={endSession}
+                    className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white px-12 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
+                  >
+                    <Square size={22} />
+                    Terminer
+                  </button>
+                ) : (
+                  <div className="space-y-4">
+                    {uploadStatus === 'idle' && <p className="text-green-400 text-lg font-semibold">Session terminée</p>}
+                    {uploadStatus === 'uploading' && <p className="text-blue-400 text-lg font-semibold">⏳ Envoi vers Drive...</p>}
+                    {uploadStatus === 'success' && <p className="text-green-400 text-lg font-semibold">✓ Envoyé sur Drive !</p>}
+                    {uploadStatus === 'error' && <p className="text-orange-400 text-lg font-semibold">⚠️ Erreur - Téléchargement local</p>}
+                    
+                    <div className="flex gap-3 justify-center">
+                      <button
+                        onClick={() => uploadToDrive(currentSessionData.recordings, currentSessionData)}
+                        disabled={uploadStatus === 'uploading'}
+                        className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-50 text-white px-12 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg transform hover:scale-105"
+                      >
+                        <Download size={22} />
+                        {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer sur Drive'}
+                      </button>
+                      <button
+                        onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 transition-all shadow-lg"
+                        title="Télécharger localement"
+                      >
+                        <Download size={18} />
+                        Télécharger
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8">
+              <h2 className="text-xl font-semibold text-white mb-6">Labels de conduite</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {labels.map(label => (
+                  <button
+                    key={label.id}
+                    onClick={() => toggleLabel(label.id)}
+                    disabled={!isRunning}
+                    className={`
+                      ${activeLabels[label.id] 
+                        ? `${label.color} ring-2 ring-offset-2 ring-offset-slate-800 ring-white shadow-xl` 
+                        : 'bg-slate-700 hover:bg-slate-600 border border-slate-600'
+                      }
+                      ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
+                      text-white px-5 py-4 rounded-lg text-base font-semibold
+                      transition-all
+                    `}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{label.name}</span>
+                      {activeLabels[label.id] && (
+                        <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">
+                          ●
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isRunning && imuPermission && (
+              <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-6 mt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-white">Centrale inertielle (IMU)</h2>
+                  <span className="text-emerald-400 font-mono text-sm">
+                    {imuHistory.length} mesures enregistrées
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Accélération X</p>
+                    <p className="text-cyan-400 text-2xl font-bold font-mono">{imuData.ax} m/s²</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Accélération Y</p>
+                    <p className="text-cyan-400 text-2xl font-bold font-mono">{imuData.ay} m/s²</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Accélération Z</p>
+                    <p className="text-cyan-400 text-2xl font-bold font-mono">{imuData.az} m/s²</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Rotation Alpha</p>
+                    <p className="text-purple-400 text-2xl font-bold font-mono">{imuData.gx}°/s</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Rotation Beta</p>
+                    <p className="text-purple-400 text-2xl font-bold font-mono">{imuData.gy}°/s</p>
+                  </div>
+                  <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                    <p className="text-slate-400 text-xs mb-1 font-mono">Rotation Gamma</p>
+                    <p className="text-purple-400 text-2xl font-bold font-mono">{imuData.gz}°/s</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {recordings.length > 0 && (
+              <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-8 mt-6">
+                <h2 className="text-xl font-semibold text-white mb-4">Événements enregistrés</h2>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {recordings.map((rec, idx) => (
+                    <div key={idx} className="bg-slate-700 p-4 rounded-lg border border-slate-600">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-white">{rec.label}</span>
+                        <span className="text-sm text-slate-300 font-mono">
+                          {rec.startTime} → {rec.endTime} ({rec.duration})
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
     }
 
-    // CORRECTION: Bien gérer les retours à la ligne dans la clé privée
-    let privateKey = process.env.GOOGLE_PRIVATE_KEY;
-    
-    // Si la clé contient des \n littéraux (échappés), les remplacer par de vrais retours à la ligne
-    if (privateKey && privateKey.includes('\\n')) {
-      privateKey = privateKey.replace(/\\n/g, '\n');
-    }
-
-    // Configurer l'authentification avec Service Account
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        type: 'service_account',
-        project_id: process.env.GOOGLE_PROJECT_ID,
-        private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-        private_key: privateKey,
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        client_id: process.env.GOOGLE_CLIENT_ID,
-      },
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
-    });
-
-    const drive = google.drive({ version: 'v3', auth });
-
-    // ID du dossier Drive où sauvegarder (optionnel)
-    const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
-
-    // Créer le fichier sur Drive
-    const fileMetadata = {
-      name: fileName,
-      mimeType: 'text/csv',
-    };
-
-    if (folderId) {
-      fileMetadata.parents = [folderId];
-    }
-
-    const media = {
-      mimeType: 'text/csv',
-      body: csvContent,
-    };
-
-    const file = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: 'id, name, webViewLink',
-    });
-
-    console.log('Fichier uploadé:', file.data);
-
-    return res.status(200).json({
-      success: true,
-      fileId: file.data.id,
-      fileName: file.data.name,
-      link: file.data.webViewLink,
-    });
-
-  } catch (error) {
-    console.error('Erreur upload Drive:', error);
-    return res.status(500).json({ 
-      error: 'Upload failed',
-      details: error.message 
-    });
-  }
-}
+    ReactDOM.render(<DrivingLabelingApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
