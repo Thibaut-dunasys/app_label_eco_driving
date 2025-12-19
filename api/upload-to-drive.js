@@ -16,13 +16,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing csvContent or fileName' });
     }
 
+    // CORRECTION: Bien gérer les retours à la ligne dans la clé privée
+    let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+    
+    // Si la clé contient des \n littéraux (échappés), les remplacer par de vrais retours à la ligne
+    if (privateKey && privateKey.includes('\\n')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+
     // Configurer l'authentification avec Service Account
     const auth = new google.auth.GoogleAuth({
       credentials: {
         type: 'service_account',
         project_id: process.env.GOOGLE_PROJECT_ID,
         private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-        private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        private_key: privateKey,
         client_email: process.env.GOOGLE_CLIENT_EMAIL,
         client_id: process.env.GOOGLE_CLIENT_ID,
       },
@@ -32,8 +40,6 @@ export default async function handler(req, res) {
     const drive = google.drive({ version: 'v3', auth });
 
     // ID du dossier Drive où sauvegarder (optionnel)
-    // Si vous voulez tout mettre dans un dossier spécifique, créez-le d'abord
-    // et mettez son ID ici
     const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
 
     // Créer le fichier sur Drive
