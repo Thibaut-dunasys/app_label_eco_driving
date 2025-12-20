@@ -1,0 +1,8 @@
+{
+  "short_name": "Labelisation",
+  "name": "Labelisation de Conduite",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#334155",
+  "background_color": "#1e293b"
+}
