@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2 } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -18,6 +18,8 @@ function App() {
   const [imuPermission, setImuPermission] = useState(false);
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
+  const [needsPermission, setNeedsPermission] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   const labels = [
     { id: 'non-aggressive', name: 'Non agressive', color: 'bg-emerald-500' },
@@ -64,11 +66,80 @@ function App() {
     return () => clearInterval(interval);
   }, [isRunning, startTime]);
 
+  // Fonction pour demander les permissions IMU
+  const requestIMUPermission = async () => {
+    console.log('🎯 Demande de permission IMU...');
+    
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      // iOS 13+
+      try {
+        const permissionState = await DeviceMotionEvent.requestPermission();
+        if (permissionState === 'granted') {
+          console.log('✅ Permission accordée !');
+          setImuPermission(true);
+          setNeedsPermission(false);
+          setPermissionDenied(false);
+          return true;
+        } else {
+          console.warn('❌ Permission refusée');
+          setPermissionDenied(true);
+          setNeedsPermission(false);
+          return false;
+        }
+      } catch (err) {
+        console.error('Erreur permission:', err);
+        setPermissionDenied(true);
+        return false;
+      }
+    } else {
+      // Android et autres
+      console.log('📱 Appareil non-iOS - Activation directe');
+      setImuPermission(true);
+      setNeedsPermission(false);
+      return true;
+    }
+  };
+
   // Gestion de la centrale inertielle (IMU)
   useEffect(() => {
     if (currentPage !== 'labeling') return;
 
-    console.log('🎯 Activation des capteurs IMU...');
+    console.log('🎯 Page labeling active...');
+
+    // Vérifier si on a besoin d'une permission
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      setNeedsPermission(true);
+      return;
+    }
+
+    // Pour les appareils non-iOS, activer directement
+    const handleMotion = (event) => {
+      if (event.acceleration && event.rotationRate) {
+        const newImuData = {
+          ax: event.acceleration.x?.toFixed(2) || 0,
+          ay: event.acceleration.y?.toFixed(2) || 0,
+          az: event.acceleration.z?.toFixed(2) || 0,
+          gx: event.rotationRate.alpha?.toFixed(2) || 0,
+          gy: event.rotationRate.beta?.toFixed(2) || 0,
+          gz: event.rotationRate.gamma?.toFixed(2) || 0
+        };
+        setImuData(newImuData);
+      }
+    };
+
+    window.addEventListener('devicemotion', handleMotion);
+    setImuPermission(true);
+    console.log('📱 Capteurs IMU activés (Android)');
+
+    return () => {
+      window.removeEventListener('devicemotion', handleMotion);
+      console.log('🛑 Capteurs IMU désactivés');
+    };
+  }, [currentPage]);
+
+  // Listener IMU une fois la permission accordée
+  useEffect(() => {
+    if (!imuPermission || currentPage !== 'labeling') return;
 
     const handleMotion = (event) => {
       if (event.acceleration && event.rotationRate) {
@@ -84,33 +155,13 @@ function App() {
       }
     };
 
-    // iOS 13+ nécessite une permission explicite
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      console.log('📱 iOS détecté - Demande de permission...');
-      DeviceMotionEvent.requestPermission()
-        .then(permissionState => {
-          if (permissionState === 'granted') {
-            console.log('✅ Permission accordée !');
-            window.addEventListener('devicemotion', handleMotion);
-            setImuPermission(true);
-          } else {
-            console.warn('❌ Permission refusée');
-          }
-        })
-        .catch(err => {
-          console.error('Erreur permission:', err);
-        });
-    } else {
-      console.log('📱 Appareil non-iOS - Activation directe');
-      window.addEventListener('devicemotion', handleMotion);
-      setImuPermission(true);
-    }
+    window.addEventListener('devicemotion', handleMotion);
+    console.log('📱 Listener IMU activé');
 
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
-      console.log('🛑 Capteurs IMU désactivés');
     };
-  }, [currentPage]);
+  }, [imuPermission, currentPage]);
 
   // Enregistrement des données IMU toutes les secondes
   useEffect(() => {
@@ -550,6 +601,72 @@ function App() {
           Retour
         </button>
 
+        {/* Bouton de permission iOS */}
+        {needsPermission && !imuPermission && (
+          <div className="bg-blue-900 border border-blue-600 rounded-xl p-6 mb-4">
+            <div className="flex items-start gap-4">
+              <Smartphone className="text-blue-300 flex-shrink-0 mt-1" size={24} />
+              <div className="flex-1">
+                <h3 className="text-white font-semibold mb-2">Autorisation requise</h3>
+                <p className="text-blue-200 text-sm mb-4">
+                  Pour enregistrer les données de l'accéléromètre, veuillez autoriser l'accès aux capteurs de mouvement.
+                </p>
+                <button
+                  onClick={requestIMUPermission}
+                  className="bg-blue-500 hover:bg-blue-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2"
+                >
+                  <Smartphone size={18} />
+                  Autoriser les capteurs
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Message permission refusée */}
+        {permissionDenied && (
+          <div className="bg-red-900 border border-red-600 rounded-xl p-4 mb-4">
+            <p className="text-red-200 text-sm">
+              ❌ Permission refusée. Veuillez autoriser l'accès aux capteurs dans les paramètres de votre navigateur.
+            </p>
+          </div>
+        )}
+
+        {/* État des capteurs - TOUJOURS VISIBLE */}
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
+            <span className={`text-xs px-3 py-1 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+              {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-slate-700 rounded p-3 border border-slate-600">
+              <p className="text-slate-400 text-xs font-mono mb-1">Acc X</p>
+              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
+                {imuPermission ? imuData.ax : '--'}
+              </p>
+            </div>
+            <div className="bg-slate-700 rounded p-3 border border-slate-600">
+              <p className="text-slate-400 text-xs font-mono mb-1">Acc Y</p>
+              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
+                {imuPermission ? imuData.ay : '--'}
+              </p>
+            </div>
+            <div className="bg-slate-700 rounded p-3 border border-slate-600">
+              <p className="text-slate-400 text-xs font-mono mb-1">Gyro Z</p>
+              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
+                {imuPermission ? imuData.gz : '--'}
+              </p>
+            </div>
+          </div>
+          {!imuPermission && (
+            <p className="text-amber-400 text-xs mt-3 text-center">
+              ⚠️ Autorisez les capteurs pour voir les données en temps réel
+            </p>
+          )}
+        </div>
+
         {sessionStartDate && (
           <div className="bg-slate-800 rounded-lg p-3 mb-4 text-center border border-slate-600">
             <p className="text-xs text-slate-400 font-mono mb-1">Début</p>
@@ -566,7 +683,8 @@ function App() {
             {!isRunning && !sessionEnded ? (
               <button
                 onClick={startSession}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 active:scale-95 text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
+                disabled={!imuPermission}
+                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
               >
                 <Play size={24} />
                 Démarrer
@@ -605,10 +723,15 @@ function App() {
                 </div>
               </div>
             )}
+            {!imuPermission && !isRunning && !sessionEnded && (
+              <p className="text-amber-400 text-sm mt-3">
+                ⚠️ Autorisez d'abord les capteurs pour démarrer
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4">
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
           <div className="grid grid-cols-1 gap-3">
             {labels.map(label => (
@@ -636,27 +759,13 @@ function App() {
           </div>
         </div>
 
-        {isRunning && imuPermission && imuHistory.length > 0 && (
-          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mt-4">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold text-white">Capteurs IMU</h2>
-              <span className="text-emerald-400 font-mono text-xs">
-                {imuHistory.length} mesures
+        {isRunning && imuHistory.length > 0 && (
+          <div className="bg-emerald-900 border border-emerald-600 rounded-xl p-4">
+            <div className="flex items-center gap-2 justify-center">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+              <span className="text-emerald-200 font-mono text-sm">
+                Enregistrement actif : {imuHistory.length} mesures
               </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-slate-700 rounded p-2 border border-slate-600">
-                <p className="text-slate-400 text-xs font-mono">Acc X</p>
-                <p className="text-cyan-400 text-lg font-bold font-mono">{imuData.ax}</p>
-              </div>
-              <div className="bg-slate-700 rounded p-2 border border-slate-600">
-                <p className="text-slate-400 text-xs font-mono">Acc Y</p>
-                <p className="text-cyan-400 text-lg font-bold font-mono">{imuData.ay}</p>
-              </div>
-              <div className="bg-slate-700 rounded p-2 border border-slate-600">
-                <p className="text-slate-400 text-xs font-mono">Gyro Z</p>
-                <p className="text-purple-400 text-lg font-bold font-mono">{imuData.gz}</p>
-              </div>
             </div>
           </div>
         )}
