@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -66,12 +66,10 @@ function App() {
     return () => clearInterval(interval);
   }, [isRunning, startTime]);
 
-  // Fonction pour demander les permissions IMU
   const requestIMUPermission = async () => {
     console.log('🎯 Demande de permission IMU...');
     
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      // iOS 13+
       try {
         const permissionState = await DeviceMotionEvent.requestPermission();
         if (permissionState === 'granted') {
@@ -92,7 +90,6 @@ function App() {
         return false;
       }
     } else {
-      // Android et autres
       console.log('📱 Appareil non-iOS - Activation directe');
       setImuPermission(true);
       setNeedsPermission(false);
@@ -100,19 +97,16 @@ function App() {
     }
   };
 
-  // Gestion de la centrale inertielle (IMU)
   useEffect(() => {
     if (currentPage !== 'labeling') return;
 
     console.log('🎯 Page labeling active...');
 
-    // Vérifier si on a besoin d'une permission
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       setNeedsPermission(true);
       return;
     }
 
-    // Pour les appareils non-iOS, activer directement
     const handleMotion = (event) => {
       if (event.acceleration && event.rotationRate) {
         const newImuData = {
@@ -137,7 +131,6 @@ function App() {
     };
   }, [currentPage]);
 
-  // Listener IMU une fois la permission accordée
   useEffect(() => {
     if (!imuPermission || currentPage !== 'labeling') return;
 
@@ -163,7 +156,6 @@ function App() {
     };
   }, [imuPermission, currentPage]);
 
-  // Enregistrement des données IMU toutes les secondes
   useEffect(() => {
     if (!isRunning || Object.keys(activeLabels).length === 0) return;
 
@@ -758,6 +750,43 @@ function App() {
             ))}
           </div>
         </div>
+
+        {/* NOUVEAU : Historique en temps réel des événements enregistrés */}
+        {isRunning && recordings.length > 0 && (
+          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Événements enregistrés</h2>
+              <span className="bg-green-900 text-green-300 text-xs px-3 py-1 rounded-full font-mono">
+                {recordings.length} event{recordings.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {recordings.map((rec, idx) => (
+                <div key={idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600 animate-fadeIn">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 flex-1">
+                      <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-white text-sm mb-1">{rec.label}</p>
+                        <div className="flex flex-wrap gap-2 text-xs text-slate-400 font-mono">
+                          <span>{rec.startTime} → {rec.endTime}</span>
+                          <span className="text-slate-500">•</span>
+                          <span>Durée: {rec.duration}</span>
+                          {rec.imuData && rec.imuData.length > 0 && (
+                            <>
+                              <span className="text-slate-500">•</span>
+                              <span className="text-cyan-400">{rec.imuData.length} mesures</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {isRunning && imuHistory.length > 0 && (
           <div className="bg-emerald-900 border border-emerald-600 rounded-xl p-4">
