@@ -25,10 +25,8 @@ function App() {
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
 
-  // CORRECTION: Utiliser useRef pour éviter de re-créer l'intervalle à chaque changement d'IMU
   const imuDataRef = useRef(imuData);
   
-  // Mettre à jour la ref à chaque changement d'imuData
   useEffect(() => {
     imuDataRef.current = imuData;
   }, [imuData]);
@@ -181,14 +179,12 @@ function App() {
     };
   }, [imuPermission, currentPage]);
 
-  // CORRECTION: Enregistrement IMU - NE DÉPEND PLUS de imuData, utilise la ref !
   useEffect(() => {
     if (!isRunning) return;
 
     addDebugLog('🔴 Démarrage enregistrement IMU à 2Hz', 'success');
 
     const interval = setInterval(() => {
-      // Utiliser la ref au lieu de la state directement
       const currentImuData = imuDataRef.current;
       
       const dataPoint = {
@@ -214,7 +210,7 @@ function App() {
       clearInterval(interval);
       addDebugLog('🛑 Arrêt enregistrement IMU', 'warning');
     };
-  }, [isRunning]); // CORRECTION: Dépend seulement de isRunning, pas de imuData !
+  }, [isRunning]);
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -426,8 +422,10 @@ function App() {
     addDebugLog('✅ Téléchargement lancé', 'success');
   };
 
+  // CORRECTION: Upload vers Google Drive via l'API Vercel
   const uploadToDrive = async (data, session) => {
     setUploadStatus('uploading');
+    addDebugLog('📤 Upload vers Drive...', 'info');
     
     const removeAccents = (str) => {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -448,22 +446,31 @@ function App() {
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const formData = new FormData();
-    formData.append('file', blob, `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    const filename = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+    formData.append('file', blob, filename);
 
     try {
-      const response = await fetch('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', {
+      // Appel à l'API Vercel serverless
+      const response = await fetch('/api/upload-to-drive', {
         method: 'POST',
         body: formData
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        addDebugLog(`✅ Upload réussi: ${result.fileName}`, 'success');
         setUploadStatus('success');
         setTimeout(() => setUploadStatus('idle'), 3000);
       } else {
-        throw new Error('Upload failed');
+        throw new Error(result.message || result.error || 'Upload failed');
       }
     } catch (error) {
+      console.error('Erreur upload:', error);
+      addDebugLog(`❌ Erreur upload: ${error.message}`, 'error');
       setUploadStatus('error');
+      
+      // Fallback: télécharger en local si l'upload échoue
       downloadCSV(data, session);
       setTimeout(() => setUploadStatus('idle'), 3000);
     }
@@ -476,7 +483,8 @@ function App() {
     }
   };
 
-  // Page d'accueil (identique - je ne copie pas tout pour économiser de l'espace)
+  // [Pages Home et Details - identiques à avant, je garde le code complet pour référence]
+  
   if (currentPage === 'home') {
     return (
       <div className="min-h-screen bg-slate-700 p-4 sm:p-8">
@@ -550,7 +558,6 @@ function App() {
     );
   }
 
-  // Page de détails (identique)
   if (currentPage === 'details' && selectedSession) {
     return (
       <div className="min-h-screen bg-slate-700 p-4 sm:p-8">
@@ -626,7 +633,6 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe">
       <div className="max-w-4xl mx-auto">
-        {/* Bouton debug flottant */}
         <button
           onClick={() => setShowDebug(!showDebug)}
           className="fixed top-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg active:scale-95"
@@ -634,7 +640,6 @@ function App() {
           <Bug size={24} />
         </button>
 
-        {/* Panneau de debug */}
         {showDebug && (
           <div className="fixed top-16 right-4 z-40 bg-slate-900 border border-purple-500 rounded-lg p-4 shadow-2xl max-w-sm max-h-96 overflow-y-auto">
             <div className="flex justify-between items-center mb-3">
@@ -669,7 +674,6 @@ function App() {
               )}
             </div>
             
-            {/* Statistiques en temps réel */}
             <div className="mt-4 pt-3 border-t border-slate-700">
               <p className="text-xs font-bold text-white mb-2">Statistiques</p>
               <div className="space-y-1 text-xs text-slate-300 font-mono">
@@ -815,7 +819,7 @@ function App() {
                 {uploadStatus === 'idle' && <p className="text-green-400 text-lg font-semibold">✓ Session terminée</p>}
                 {uploadStatus === 'uploading' && <p className="text-blue-400 text-lg font-semibold">⏳ Envoi en cours...</p>}
                 {uploadStatus === 'success' && <p className="text-green-400 text-lg font-semibold">✓ Envoyé avec succès !</p>}
-                {uploadStatus === 'error' && <p className="text-orange-400 text-lg font-semibold">⚠️ Erreur d'envoi</p>}
+                {uploadStatus === 'error' && <p className="text-orange-400 text-lg font-semibold">⚠️ Erreur d'envoi - Téléchargement local effectué</p>}
                 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <button
