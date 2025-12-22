@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug } from 'lucide-react';
 import './App.css';
 
+
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [sessions, setSessions] = useState([]);
