@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -21,6 +21,15 @@ function App() {
   const [needsPermission, setNeedsPermission] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [sensorWarning, setSensorWarning] = useState('');
+  
+  // NOUVEAU : Panneau de debug
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugLogs, setDebugLogs] = useState([]);
+
+  const addDebugLog = (message, type = 'info') => {
+    const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setDebugLogs(prev => [...prev.slice(-20), { time: timestamp, message, type }]); // Garde les 20 derniers logs
+  };
 
   const labels = [
     { id: 'non-aggressive', name: 'Non agressive', color: 'bg-emerald-500' },
@@ -68,30 +77,30 @@ function App() {
   }, [isRunning, startTime]);
 
   const requestIMUPermission = async () => {
-    console.log('🎯 Demande de permission IMU...');
+    addDebugLog('Demande de permission IMU...', 'info');
     
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       try {
         const permissionState = await DeviceMotionEvent.requestPermission();
         if (permissionState === 'granted') {
-          console.log('✅ Permission accordée !');
+          addDebugLog('✅ Permission accordée !', 'success');
           setImuPermission(true);
           setNeedsPermission(false);
           setPermissionDenied(false);
           return true;
         } else {
-          console.warn('❌ Permission refusée');
+          addDebugLog('❌ Permission refusée', 'error');
           setPermissionDenied(true);
           setNeedsPermission(false);
           return false;
         }
       } catch (err) {
-        console.error('Erreur permission:', err);
+        addDebugLog('❌ Erreur permission: ' + err.message, 'error');
         setPermissionDenied(true);
         return false;
       }
     } else {
-      console.log('📱 Appareil non-iOS - Activation directe');
+      addDebugLog('📱 Activation directe (non-iOS)', 'success');
       setImuPermission(true);
       setNeedsPermission(false);
       return true;
@@ -101,15 +110,15 @@ function App() {
   useEffect(() => {
     if (currentPage !== 'labeling') return;
 
-    console.log('🎯 Page labeling active...');
+    addDebugLog('Page labeling chargée', 'info');
 
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       setNeedsPermission(true);
+      addDebugLog('iOS détecté - Permission requise', 'warning');
       return;
     }
 
     const handleMotion = (event) => {
-      // CORRECTION: Utiliser accelerationIncludingGravity si acceleration est null
       const accel = event.acceleration || event.accelerationIncludingGravity;
       const rotation = event.rotationRate;
       
@@ -123,24 +132,18 @@ function App() {
           gz: rotation.gamma !== null && rotation.gamma !== undefined ? Number(rotation.gamma.toFixed(2)) : 0
         };
         setImuData(newImuData);
-        
-        // Log pour debug - seulement 1 fois sur 10 pour ne pas spammer
-        if (Math.random() < 0.1) {
-          console.log('📊 IMU actuel:', newImuData);
-        }
       } else {
-        console.warn('⚠️ Capteurs IMU non disponibles:', { accel, rotation });
-        setSensorWarning('Capteurs IMU non disponibles sur cet appareil');
+        addDebugLog('⚠️ Capteurs non disponibles', 'error');
+        setSensorWarning('Capteurs IMU non disponibles');
       }
     };
 
     window.addEventListener('devicemotion', handleMotion);
     setImuPermission(true);
-    console.log('📱 Capteurs IMU activés (Android)');
+    addDebugLog('✅ Capteurs IMU activés', 'success');
 
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
-      console.log('🛑 Capteurs IMU désactivés');
     };
   }, [currentPage]);
 
@@ -148,7 +151,6 @@ function App() {
     if (!imuPermission || currentPage !== 'labeling') return;
 
     const handleMotion = (event) => {
-      // CORRECTION: Utiliser accelerationIncludingGravity si acceleration est null
       const accel = event.acceleration || event.accelerationIncludingGravity;
       const rotation = event.rotationRate;
       
@@ -166,18 +168,17 @@ function App() {
     };
 
     window.addEventListener('devicemotion', handleMotion);
-    console.log('📱 Listener IMU activé');
 
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
     };
   }, [imuPermission, currentPage]);
 
-  // Enregistrement des données IMU toutes les 0.5 secondes DÈS QUE LA SESSION DÉMARRE
+  // Enregistrement des données IMU toutes les 0.5 secondes
   useEffect(() => {
     if (!isRunning) return;
 
-    console.log('🔴 Démarrage enregistrement IMU continu à 2Hz');
+    addDebugLog('🔴 Démarrage enregistrement IMU à 2Hz', 'success');
 
     const interval = setInterval(() => {
       const dataPoint = {
@@ -190,13 +191,9 @@ function App() {
       setImuHistory(prev => {
         const updated = [...prev, dataPoint];
         
-        // Log détaillé toutes les 10 mesures
         if (updated.length % 10 === 0) {
-          console.log('💾 IMU enregistré (2Hz):', {
-            mesure: updated.length,
-            dernière: dataPoint,
-            nonZero: updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length
-          });
+          const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+          addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null)`, 'info');
         }
         
         return updated;
@@ -205,7 +202,7 @@ function App() {
 
     return () => {
       clearInterval(interval);
-      console.log('🛑 Arrêt enregistrement IMU');
+      addDebugLog('🛑 Arrêt enregistrement IMU', 'warning');
     };
   }, [isRunning, imuData]);
 
@@ -230,7 +227,7 @@ function App() {
 
   const startSession = () => {
     const now = new Date();
-    console.log('🚀 Démarrage session - Enregistrement IMU continu à 2Hz');
+    addDebugLog('🚀 Démarrage session', 'success');
     setIsRunning(true);
     setStartTime(Date.now());
     setSessionStartDate(now);
@@ -250,11 +247,11 @@ function App() {
     const currentTime = elapsedTime;
     const currentTimestamp = Date.now();
     const newRecordings = [...recordings];
+    const labelName = labels.find(l => l.id === labelId).name;
     
     if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
       const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
-      console.log('📝 Initialisation - IMU data:', initImuData.length, 'points');
-      console.log('📊 Aperçu données:', initImuData.slice(0, 3));
+      addDebugLog(`📝 Init: ${initImuData.length} mesures`, 'info');
       
       newRecordings.push({
         label: 'Initialisation',
@@ -275,16 +272,11 @@ function App() {
         d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
       
-      console.log(`📝 ${labels.find(l => l.id === labelId).name} - IMU data:`, periodImuData.length, 'points');
-      console.log('📊 Aperçu données:', periodImuData.slice(0, 5));
-      console.log('📊 Valeurs non-nulles:', {
-        ax: periodImuData.filter(d => d.ax !== 0).length,
-        ay: periodImuData.filter(d => d.ay !== 0).length,
-        gz: periodImuData.filter(d => d.gz !== 0).length
-      });
+      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+      addDebugLog(`✅ ${labelName}: ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
       
       newRecordings.push({
-        label: labels.find(l => l.id === labelId).name,
+        label: labelName,
         startTime: formatTime(startTimeLabel),
         endTime: formatTime(currentTime),
         duration: formatTime(currentTime - startTimeLabel),
@@ -315,6 +307,7 @@ function App() {
         });
       });
       
+      addDebugLog(`▶️ ${labelName} activé`, 'info');
       setActiveLabels({ [labelId]: { time: currentTime, timestamp: currentTimestamp } });
       setRecordings(newRecordings);
     }
@@ -326,13 +319,8 @@ function App() {
     const endDate = new Date();
     const currentTimestamp = Date.now();
     
-    console.log('🏁 Fin de session - Total IMU history:', imuHistory.length, 'points');
-    console.log('📊 Statistiques IMU:', {
-      total: imuHistory.length,
-      nonZeroAx: imuHistory.filter(d => d.ax !== 0).length,
-      nonZeroAy: imuHistory.filter(d => d.ay !== 0).length,
-      nonZeroGz: imuHistory.filter(d => d.gz !== 0).length
-    });
+    const nonZero = imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+    addDebugLog(`🏁 Fin: ${imuHistory.length} mesures (${nonZero} non-null)`, 'success');
     
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
@@ -375,12 +363,6 @@ function App() {
       imuData: []
     });
 
-    console.log('💾 Enregistrements finaux:', finalRecordings.map(r => ({
-      label: r.label,
-      imuPoints: r.imuData?.length || 0,
-      aperçu: r.imuData?.slice(0, 2)
-    })));
-
     const newSession = {
       id: Date.now(),
       startDate: sessionStartDate,
@@ -397,6 +379,8 @@ function App() {
     setIsRunning(false);
     setSessionEnded(true);
     setCurrentSessionData(newSession);
+    
+    addDebugLog('💾 Session sauvegardée', 'success');
   };
 
   const downloadCSV = (data, session) => {
@@ -413,18 +397,11 @@ function App() {
         const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
         const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
         
-        console.log(`📄 CSV génération - ${row.label}:`, {
-          mesures: row.imuData?.length || 0,
-          ax_preview: axList.substring(0, 50),
-          ay_preview: ayList.substring(0, 50),
-          gz_preview: gzList.substring(0, 50)
-        });
-        
         return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
       })
     ].join('\n');
 
-    console.log('📄 CSV total length:', csvContent.length);
+    addDebugLog(`📄 CSV généré: ${csvContent.length} chars`, 'success');
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -436,7 +413,7 @@ function App() {
     link.click();
     document.body.removeChild(link);
     
-    console.log('✅ Téléchargement CSV lancé');
+    addDebugLog('✅ Téléchargement lancé', 'success');
   };
 
   const uploadToDrive = async (data, session) => {
@@ -470,14 +447,12 @@ function App() {
       });
 
       if (response.ok) {
-        console.log('✓ Fichier uploadé');
         setUploadStatus('success');
         setTimeout(() => setUploadStatus('idle'), 3000);
       } else {
         throw new Error('Upload failed');
       }
     } catch (error) {
-      console.error('Erreur upload:', error);
       setUploadStatus('error');
       downloadCSV(data, session);
       setTimeout(() => setUploadStatus('idle'), 3000);
@@ -641,6 +616,66 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe">
       <div className="max-w-4xl mx-auto">
+        {/* NOUVEAU: Bouton debug flottant */}
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="fixed top-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg active:scale-95"
+        >
+          <Bug size={24} />
+        </button>
+
+        {/* NOUVEAU: Panneau de debug */}
+        {showDebug && (
+          <div className="fixed top-16 right-4 z-40 bg-slate-900 border border-purple-500 rounded-lg p-4 shadow-2xl max-w-sm max-h-96 overflow-y-auto">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-white font-bold flex items-center gap-2">
+                <Bug size={18} />
+                Debug
+              </h3>
+              <button
+                onClick={() => setDebugLogs([])}
+                className="text-slate-400 hover:text-white text-xs"
+              >
+                Effacer
+              </button>
+            </div>
+            <div className="space-y-1">
+              {debugLogs.length === 0 ? (
+                <p className="text-slate-400 text-xs">Aucun log</p>
+              ) : (
+                debugLogs.map((log, idx) => (
+                  <div key={idx} className="text-xs font-mono">
+                    <span className="text-slate-500">{log.time}</span>
+                    <span className={`ml-2 ${
+                      log.type === 'error' ? 'text-red-400' :
+                      log.type === 'warning' ? 'text-amber-400' :
+                      log.type === 'success' ? 'text-green-400' :
+                      'text-slate-300'
+                    }`}>
+                      {log.message}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            {/* Statistiques en temps réel */}
+            <div className="mt-4 pt-3 border-t border-slate-700">
+              <p className="text-xs font-bold text-white mb-2">Statistiques</p>
+              <div className="space-y-1 text-xs text-slate-300 font-mono">
+                <div>Mesures totales: <span className="text-cyan-400">{imuHistory.length}</span></div>
+                <div>Non-nulles: <span className="text-green-400">
+                  {imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length}
+                </span></div>
+                <div>Events: <span className="text-purple-400">{recordings.length}</span></div>
+                <div>IMU actuel: <span className="text-amber-400">
+                  ax:{imuData.ax} ay:{imuData.ay} gz:{imuData.gz}
+                </span></div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={() => {
             if (isRunning) {
