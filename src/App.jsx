@@ -156,6 +156,7 @@ function App() {
     };
   }, [imuPermission, currentPage]);
 
+  // Enregistrement des données IMU toutes les 0.5 secondes (2Hz)
   useEffect(() => {
     if (!isRunning || Object.keys(activeLabels).length === 0) return;
 
@@ -168,10 +169,10 @@ function App() {
       };
       setImuHistory(prev => {
         const updated = [...prev, dataPoint];
-        console.log('💾 IMU enregistré:', dataPoint, '| Total:', updated.length);
+        console.log('💾 IMU enregistré (2Hz):', dataPoint, '| Total:', updated.length);
         return updated;
       });
-    }, 1000);
+    }, 500); // 500ms = 0.5 seconde = 2Hz
 
     return () => clearInterval(interval);
   }, [isRunning, activeLabels, imuData]);
@@ -197,7 +198,7 @@ function App() {
 
   const startSession = () => {
     const now = new Date();
-    console.log('🚀 Démarrage session');
+    console.log('🚀 Démarrage session - Fréquence IMU: 2Hz (0.5s)');
     setIsRunning(true);
     setStartTime(Date.now());
     setSessionStartDate(now);
@@ -219,7 +220,7 @@ function App() {
     
     if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
       const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
-      console.log('📝 Initialisation - IMU data:', initImuData.length, 'points');
+      console.log('📝 Initialisation - IMU data:', initImuData.length, 'points (2Hz)');
       newRecordings.push({
         label: 'Initialisation',
         startTime: formatTime(0),
@@ -239,7 +240,7 @@ function App() {
         d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
       
-      console.log(`📝 ${labels.find(l => l.id === labelId).name} - IMU data:`, periodImuData.length, 'points');
+      console.log(`📝 ${labels.find(l => l.id === labelId).name} - IMU data:`, periodImuData.length, 'points (2Hz)');
       
       newRecordings.push({
         label: labels.find(l => l.id === labelId).name,
@@ -284,7 +285,7 @@ function App() {
     const endDate = new Date();
     const currentTimestamp = Date.now();
     
-    console.log('🏁 Fin de session - Total IMU history:', imuHistory.length, 'points');
+    console.log('🏁 Fin de session - Total IMU history:', imuHistory.length, 'points (2Hz)');
     
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
@@ -553,6 +554,11 @@ function App() {
                       {rec.startTime} → {rec.endTime}
                     </span>
                   </div>
+                  {rec.imuData && rec.imuData.length > 0 && (
+                    <p className="text-xs text-cyan-400 font-mono mt-1">
+                      {rec.imuData.length} mesures IMU (2Hz)
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -627,7 +633,10 @@ function App() {
         {/* État des capteurs - TOUJOURS VISIBLE */}
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
-            <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
+              <p className="text-xs text-slate-400 font-mono mt-1">Fréquence: 2Hz (0.5s)</p>
+            </div>
             <span className={`text-xs px-3 py-1 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
               {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
             </span>
@@ -751,7 +760,7 @@ function App() {
           </div>
         </div>
 
-        {/* NOUVEAU : Historique en temps réel des événements enregistrés */}
+        {/* Historique en temps réel des événements enregistrés */}
         {isRunning && recordings.length > 0 && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
             <div className="flex items-center justify-between mb-4">
@@ -775,7 +784,7 @@ function App() {
                           {rec.imuData && rec.imuData.length > 0 && (
                             <>
                               <span className="text-slate-500">•</span>
-                              <span className="text-cyan-400">{rec.imuData.length} mesures</span>
+                              <span className="text-cyan-400">{rec.imuData.length} mesures (2Hz)</span>
                             </>
                           )}
                         </div>
@@ -793,7 +802,7 @@ function App() {
             <div className="flex items-center gap-2 justify-center">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
               <span className="text-emerald-200 font-mono text-sm">
-                Enregistrement actif : {imuHistory.length} mesures
+                Enregistrement actif : {imuHistory.length} mesures (2Hz)
               </span>
             </div>
           </div>
