@@ -156,16 +156,17 @@ function App() {
     };
   }, [imuPermission, currentPage]);
 
-  // Enregistrement des données IMU toutes les 0.5 secondes (2Hz)
+  // CORRECTION: Enregistrement des données IMU toutes les 0.5 secondes DÈS QUE LA SESSION DÉMARRE
+  // Plus besoin d'attendre qu'un label soit actif !
   useEffect(() => {
-    if (!isRunning || Object.keys(activeLabels).length === 0) return;
+    if (!isRunning) return; // Enregistre dès que isRunning = true
 
     const interval = setInterval(() => {
       const dataPoint = {
         timestamp: Date.now(),
-        ax: imuData.ax,
-        ay: imuData.ay,
-        gz: imuData.gz
+        ax: parseFloat(imuData.ax) || 0,
+        ay: parseFloat(imuData.ay) || 0,
+        gz: parseFloat(imuData.gz) || 0
       };
       setImuHistory(prev => {
         const updated = [...prev, dataPoint];
@@ -175,7 +176,7 @@ function App() {
     }, 500); // 500ms = 0.5 seconde = 2Hz
 
     return () => clearInterval(interval);
-  }, [isRunning, activeLabels, imuData]);
+  }, [isRunning, imuData]); // Dépend seulement de isRunning et imuData, pas de activeLabels
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -198,7 +199,7 @@ function App() {
 
   const startSession = () => {
     const now = new Date();
-    console.log('🚀 Démarrage session - Fréquence IMU: 2Hz (0.5s)');
+    console.log('🚀 Démarrage session - Enregistrement IMU continu à 2Hz');
     setIsRunning(true);
     setStartTime(Date.now());
     setSessionStartDate(now);
@@ -241,6 +242,7 @@ function App() {
       );
       
       console.log(`📝 ${labels.find(l => l.id === labelId).name} - IMU data:`, periodImuData.length, 'points (2Hz)');
+      console.log('Données IMU:', periodImuData);
       
       newRecordings.push({
         label: labels.find(l => l.id === labelId).name,
@@ -330,7 +332,8 @@ function App() {
 
     console.log('💾 Enregistrements finaux:', finalRecordings.map(r => ({
       label: r.label,
-      imuPoints: r.imuData?.length || 0
+      imuPoints: r.imuData?.length || 0,
+      sampleData: r.imuData?.slice(0, 3) // Afficher les 3 premières mesures pour debug
     })));
 
     const newSession = {
@@ -361,9 +364,11 @@ function App() {
     const csvContent = [
       headers.join(','),
       ...data.map(row => {
-        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
-        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
-        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+        const axList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
+        
+        console.log('CSV Row:', row.label, '- ax:', axList.substring(0, 50), '- ay:', ayList.substring(0, 50), '- gz:', gzList.substring(0, 50));
         
         return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
       })
@@ -392,9 +397,9 @@ function App() {
     const csvContent = [
       headers.join(','),
       ...data.map(row => {
-        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
-        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
-        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+        const axList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
         
         return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
       })
@@ -630,12 +635,14 @@ function App() {
           </div>
         )}
 
-        {/* État des capteurs - TOUJOURS VISIBLE */}
+        {/* État des capteurs */}
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
             <div>
               <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
-              <p className="text-xs text-slate-400 font-mono mt-1">Fréquence: 2Hz (0.5s)</p>
+              <p className="text-xs text-slate-400 font-mono mt-1">
+                {isRunning ? '🔴 Enregistrement continu à 2Hz' : 'Fréquence: 2Hz (0.5s)'}
+              </p>
             </div>
             <span className={`text-xs px-3 py-1 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
               {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
@@ -802,7 +809,7 @@ function App() {
             <div className="flex items-center gap-2 justify-center">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
               <span className="text-emerald-200 font-mono text-sm">
-                Enregistrement actif : {imuHistory.length} mesures (2Hz)
+                Enregistrement continu : {imuHistory.length} mesures (2Hz)
               </span>
             </div>
           </div>
