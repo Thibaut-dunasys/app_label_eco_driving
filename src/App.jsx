@@ -64,9 +64,9 @@ function App() {
     return () => clearInterval(interval);
   }, [isRunning, startTime]);
 
-  // Gestion de la centrale inertielle (IMU)
+  // Gestion de la centrale inertielle (IMU) - Actif dès l'arrivée sur la page
   useEffect(() => {
-    if (!isRunning) return;
+    if (currentPage !== 'labeling') return;
 
     console.log('🎯 Activation des capteurs IMU...');
 
@@ -81,7 +81,6 @@ function App() {
           gz: event.rotationRate.gamma?.toFixed(2) || 0
         };
         setImuData(newImuData);
-        console.log('📊 Données IMU:', newImuData);
       }
     };
 
@@ -112,7 +111,7 @@ function App() {
       window.removeEventListener('devicemotion', handleMotion);
       console.log('🛑 Capteurs IMU désactivés');
     };
-  }, [isRunning]);
+  }, [currentPage]);
 
   // Enregistrement des données IMU toutes les secondes
   useEffect(() => {
@@ -662,35 +661,56 @@ function App() {
           </div>
         </div>
 
-        {isRunning && (
+        {currentPage === 'labeling' && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mt-4">
             <div className="flex justify-between items-center mb-3">
-              <h2 className="text-lg font-semibold text-white">IMU</h2>
+              <h2 className="text-lg font-semibold text-white">Capteurs IMU</h2>
               <div className="flex items-center gap-2">
                 {imuPermission ? (
-                  <span className="text-emerald-400 font-mono text-xs">✓ Actif</span>
+                  <span className="text-emerald-400 font-mono text-xs flex items-center gap-1">
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                    Actif
+                  </span>
                 ) : (
                   <span className="text-orange-400 font-mono text-xs">⚠️ Inactif</span>
                 )}
-                <span className="text-slate-400 font-mono text-xs">
-                  {imuHistory.length} pts
-                </span>
+                {isRunning && (
+                  <span className="text-slate-400 font-mono text-xs">
+                    {imuHistory.length} pts
+                  </span>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <div className="bg-slate-700 rounded p-2 border border-slate-600">
-                <p className="text-slate-400 text-xs font-mono">Acc X</p>
-                <p className="text-cyan-400 text-lg font-bold font-mono">{imuData.ax}</p>
+              <div className="bg-slate-700 rounded p-3 border border-slate-600">
+                <p className="text-slate-400 text-xs font-mono mb-1">Accélération X</p>
+                <p className={`text-2xl font-bold font-mono ${parseFloat(imuData.ax) !== 0 ? 'text-cyan-400' : 'text-slate-500'}`}>
+                  {imuData.ax}
+                </p>
+                <p className="text-slate-500 text-xs font-mono">m/s²</p>
               </div>
-              <div className="bg-slate-700 rounded p-2 border border-slate-600">
-                <p className="text-slate-400 text-xs font-mono">Acc Y</p>
-                <p className="text-cyan-400 text-lg font-bold font-mono">{imuData.ay}</p>
+              <div className="bg-slate-700 rounded p-3 border border-slate-600">
+                <p className="text-slate-400 text-xs font-mono mb-1">Accélération Y</p>
+                <p className={`text-2xl font-bold font-mono ${parseFloat(imuData.ay) !== 0 ? 'text-cyan-400' : 'text-slate-500'}`}>
+                  {imuData.ay}
+                </p>
+                <p className="text-slate-500 text-xs font-mono">m/s²</p>
               </div>
-              <div className="bg-slate-700 rounded p-2 border border-slate-600">
-                <p className="text-slate-400 text-xs font-mono">Gyro Z</p>
-                <p className="text-purple-400 text-lg font-bold font-mono">{imuData.gz}</p>
+              <div className="bg-slate-700 rounded p-3 border border-slate-600">
+                <p className="text-slate-400 text-xs font-mono mb-1">Gyroscope Z</p>
+                <p className={`text-2xl font-bold font-mono ${parseFloat(imuData.gz) !== 0 ? 'text-purple-400' : 'text-slate-500'}`}>
+                  {imuData.gz}
+                </p>
+                <p className="text-slate-500 text-xs font-mono">°/s</p>
               </div>
             </div>
+            {!imuPermission && (
+              <div className="mt-3 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                <p className="text-orange-400 text-xs text-center">
+                  Sur iOS : cliquez sur "Nouveau trajet" puis autorisez l'accès aux capteurs
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
