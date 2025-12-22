@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug } from 'lucide-react';
 import './App.css';
 
@@ -22,13 +22,20 @@ function App() {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [sensorWarning, setSensorWarning] = useState('');
   
-  // NOUVEAU : Panneau de debug
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
 
+  // CORRECTION: Utiliser useRef pour éviter de re-créer l'intervalle à chaque changement d'IMU
+  const imuDataRef = useRef(imuData);
+  
+  // Mettre à jour la ref à chaque changement d'imuData
+  useEffect(() => {
+    imuDataRef.current = imuData;
+  }, [imuData]);
+
   const addDebugLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setDebugLogs(prev => [...prev.slice(-20), { time: timestamp, message, type }]); // Garde les 20 derniers logs
+    setDebugLogs(prev => [...prev.slice(-20), { time: timestamp, message, type }]);
   };
 
   const labels = [
@@ -174,18 +181,21 @@ function App() {
     };
   }, [imuPermission, currentPage]);
 
-  // Enregistrement des données IMU toutes les 0.5 secondes
+  // CORRECTION: Enregistrement IMU - NE DÉPEND PLUS de imuData, utilise la ref !
   useEffect(() => {
     if (!isRunning) return;
 
     addDebugLog('🔴 Démarrage enregistrement IMU à 2Hz', 'success');
 
     const interval = setInterval(() => {
+      // Utiliser la ref au lieu de la state directement
+      const currentImuData = imuDataRef.current;
+      
       const dataPoint = {
         timestamp: Date.now(),
-        ax: Number(imuData.ax) || 0,
-        ay: Number(imuData.ay) || 0,
-        gz: Number(imuData.gz) || 0
+        ax: Number(currentImuData.ax) || 0,
+        ay: Number(currentImuData.ay) || 0,
+        gz: Number(currentImuData.gz) || 0
       };
       
       setImuHistory(prev => {
@@ -204,7 +214,7 @@ function App() {
       clearInterval(interval);
       addDebugLog('🛑 Arrêt enregistrement IMU', 'warning');
     };
-  }, [isRunning, imuData]);
+  }, [isRunning]); // CORRECTION: Dépend seulement de isRunning, pas de imuData !
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -466,7 +476,7 @@ function App() {
     }
   };
 
-  // Page d'accueil
+  // Page d'accueil (identique - je ne copie pas tout pour économiser de l'espace)
   if (currentPage === 'home') {
     return (
       <div className="min-h-screen bg-slate-700 p-4 sm:p-8">
@@ -540,7 +550,7 @@ function App() {
     );
   }
 
-  // Page de détails
+  // Page de détails (identique)
   if (currentPage === 'details' && selectedSession) {
     return (
       <div className="min-h-screen bg-slate-700 p-4 sm:p-8">
@@ -616,7 +626,7 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe">
       <div className="max-w-4xl mx-auto">
-        {/* NOUVEAU: Bouton debug flottant */}
+        {/* Bouton debug flottant */}
         <button
           onClick={() => setShowDebug(!showDebug)}
           className="fixed top-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg active:scale-95"
@@ -624,7 +634,7 @@ function App() {
           <Bug size={24} />
         </button>
 
-        {/* NOUVEAU: Panneau de debug */}
+        {/* Panneau de debug */}
         {showDebug && (
           <div className="fixed top-16 right-4 z-40 bg-slate-900 border border-purple-500 rounded-lg p-4 shadow-2xl max-w-sm max-h-96 overflow-y-auto">
             <div className="flex justify-between items-center mb-3">
@@ -693,7 +703,6 @@ function App() {
           Retour
         </button>
 
-        {/* Bouton de permission iOS */}
         {needsPermission && !imuPermission && (
           <div className="bg-blue-900 border border-blue-600 rounded-xl p-6 mb-4">
             <div className="flex items-start gap-4">
@@ -715,7 +724,6 @@ function App() {
           </div>
         )}
 
-        {/* Message permission refusée */}
         {permissionDenied && (
           <div className="bg-red-900 border border-red-600 rounded-xl p-4 mb-4">
             <p className="text-red-200 text-sm">
@@ -724,7 +732,6 @@ function App() {
           </div>
         )}
 
-        {/* Avertissement capteurs */}
         {sensorWarning && (
           <div className="bg-amber-900 border border-amber-600 rounded-xl p-4 mb-4">
             <div className="flex items-center gap-2">
@@ -734,7 +741,6 @@ function App() {
           </div>
         )}
 
-        {/* État des capteurs */}
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <div className="flex justify-between items-center mb-3">
             <div>
@@ -866,7 +872,6 @@ function App() {
           </div>
         </div>
 
-        {/* Historique en temps réel des événements enregistrés */}
         {isRunning && recordings.length > 0 && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
             <div className="flex items-center justify-between mb-4">
