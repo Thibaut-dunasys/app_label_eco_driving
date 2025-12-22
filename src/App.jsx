@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -20,6 +20,7 @@ function App() {
   const [uploadStatus, setUploadStatus] = useState('idle');
   const [needsPermission, setNeedsPermission] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [sensorWarning, setSensorWarning] = useState('');
 
   const labels = [
     { id: 'non-aggressive', name: 'Non agressive', color: 'bg-emerald-500' },
@@ -108,16 +109,28 @@ function App() {
     }
 
     const handleMotion = (event) => {
-      if (event.acceleration && event.rotationRate) {
+      // CORRECTION: Utiliser accelerationIncludingGravity si acceleration est null
+      const accel = event.acceleration || event.accelerationIncludingGravity;
+      const rotation = event.rotationRate;
+      
+      if (accel && rotation) {
         const newImuData = {
-          ax: event.acceleration.x?.toFixed(2) || 0,
-          ay: event.acceleration.y?.toFixed(2) || 0,
-          az: event.acceleration.z?.toFixed(2) || 0,
-          gx: event.rotationRate.alpha?.toFixed(2) || 0,
-          gy: event.rotationRate.beta?.toFixed(2) || 0,
-          gz: event.rotationRate.gamma?.toFixed(2) || 0
+          ax: accel.x !== null && accel.x !== undefined ? Number(accel.x.toFixed(2)) : 0,
+          ay: accel.y !== null && accel.y !== undefined ? Number(accel.y.toFixed(2)) : 0,
+          az: accel.z !== null && accel.z !== undefined ? Number(accel.z.toFixed(2)) : 0,
+          gx: rotation.alpha !== null && rotation.alpha !== undefined ? Number(rotation.alpha.toFixed(2)) : 0,
+          gy: rotation.beta !== null && rotation.beta !== undefined ? Number(rotation.beta.toFixed(2)) : 0,
+          gz: rotation.gamma !== null && rotation.gamma !== undefined ? Number(rotation.gamma.toFixed(2)) : 0
         };
         setImuData(newImuData);
+        
+        // Log pour debug - seulement 1 fois sur 10 pour ne pas spammer
+        if (Math.random() < 0.1) {
+          console.log('📊 IMU actuel:', newImuData);
+        }
+      } else {
+        console.warn('⚠️ Capteurs IMU non disponibles:', { accel, rotation });
+        setSensorWarning('Capteurs IMU non disponibles sur cet appareil');
       }
     };
 
@@ -135,14 +148,18 @@ function App() {
     if (!imuPermission || currentPage !== 'labeling') return;
 
     const handleMotion = (event) => {
-      if (event.acceleration && event.rotationRate) {
+      // CORRECTION: Utiliser accelerationIncludingGravity si acceleration est null
+      const accel = event.acceleration || event.accelerationIncludingGravity;
+      const rotation = event.rotationRate;
+      
+      if (accel && rotation) {
         const newImuData = {
-          ax: event.acceleration.x?.toFixed(2) || 0,
-          ay: event.acceleration.y?.toFixed(2) || 0,
-          az: event.acceleration.z?.toFixed(2) || 0,
-          gx: event.rotationRate.alpha?.toFixed(2) || 0,
-          gy: event.rotationRate.beta?.toFixed(2) || 0,
-          gz: event.rotationRate.gamma?.toFixed(2) || 0
+          ax: accel.x !== null && accel.x !== undefined ? Number(accel.x.toFixed(2)) : 0,
+          ay: accel.y !== null && accel.y !== undefined ? Number(accel.y.toFixed(2)) : 0,
+          az: accel.z !== null && accel.z !== undefined ? Number(accel.z.toFixed(2)) : 0,
+          gx: rotation.alpha !== null && rotation.alpha !== undefined ? Number(rotation.alpha.toFixed(2)) : 0,
+          gy: rotation.beta !== null && rotation.beta !== undefined ? Number(rotation.beta.toFixed(2)) : 0,
+          gz: rotation.gamma !== null && rotation.gamma !== undefined ? Number(rotation.gamma.toFixed(2)) : 0
         };
         setImuData(newImuData);
       }
@@ -156,27 +173,41 @@ function App() {
     };
   }, [imuPermission, currentPage]);
 
-  // CORRECTION: Enregistrement des données IMU toutes les 0.5 secondes DÈS QUE LA SESSION DÉMARRE
-  // Plus besoin d'attendre qu'un label soit actif !
+  // Enregistrement des données IMU toutes les 0.5 secondes DÈS QUE LA SESSION DÉMARRE
   useEffect(() => {
-    if (!isRunning) return; // Enregistre dès que isRunning = true
+    if (!isRunning) return;
+
+    console.log('🔴 Démarrage enregistrement IMU continu à 2Hz');
 
     const interval = setInterval(() => {
       const dataPoint = {
         timestamp: Date.now(),
-        ax: parseFloat(imuData.ax) || 0,
-        ay: parseFloat(imuData.ay) || 0,
-        gz: parseFloat(imuData.gz) || 0
+        ax: Number(imuData.ax) || 0,
+        ay: Number(imuData.ay) || 0,
+        gz: Number(imuData.gz) || 0
       };
+      
       setImuHistory(prev => {
         const updated = [...prev, dataPoint];
-        console.log('💾 IMU enregistré (2Hz):', dataPoint, '| Total:', updated.length);
+        
+        // Log détaillé toutes les 10 mesures
+        if (updated.length % 10 === 0) {
+          console.log('💾 IMU enregistré (2Hz):', {
+            mesure: updated.length,
+            dernière: dataPoint,
+            nonZero: updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length
+          });
+        }
+        
         return updated;
       });
-    }, 500); // 500ms = 0.5 seconde = 2Hz
+    }, 500);
 
-    return () => clearInterval(interval);
-  }, [isRunning, imuData]); // Dépend seulement de isRunning et imuData, pas de activeLabels
+    return () => {
+      clearInterval(interval);
+      console.log('🛑 Arrêt enregistrement IMU');
+    };
+  }, [isRunning, imuData]);
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -210,6 +241,7 @@ function App() {
     setCurrentSessionData(null);
     setImuHistory([]);
     setUploadStatus('idle');
+    setSensorWarning('');
   };
 
   const toggleLabel = (labelId) => {
@@ -221,7 +253,9 @@ function App() {
     
     if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
       const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
-      console.log('📝 Initialisation - IMU data:', initImuData.length, 'points (2Hz)');
+      console.log('📝 Initialisation - IMU data:', initImuData.length, 'points');
+      console.log('📊 Aperçu données:', initImuData.slice(0, 3));
+      
       newRecordings.push({
         label: 'Initialisation',
         startTime: formatTime(0),
@@ -241,8 +275,13 @@ function App() {
         d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
       
-      console.log(`📝 ${labels.find(l => l.id === labelId).name} - IMU data:`, periodImuData.length, 'points (2Hz)');
-      console.log('Données IMU:', periodImuData);
+      console.log(`📝 ${labels.find(l => l.id === labelId).name} - IMU data:`, periodImuData.length, 'points');
+      console.log('📊 Aperçu données:', periodImuData.slice(0, 5));
+      console.log('📊 Valeurs non-nulles:', {
+        ax: periodImuData.filter(d => d.ax !== 0).length,
+        ay: periodImuData.filter(d => d.ay !== 0).length,
+        gz: periodImuData.filter(d => d.gz !== 0).length
+      });
       
       newRecordings.push({
         label: labels.find(l => l.id === labelId).name,
@@ -287,7 +326,13 @@ function App() {
     const endDate = new Date();
     const currentTimestamp = Date.now();
     
-    console.log('🏁 Fin de session - Total IMU history:', imuHistory.length, 'points (2Hz)');
+    console.log('🏁 Fin de session - Total IMU history:', imuHistory.length, 'points');
+    console.log('📊 Statistiques IMU:', {
+      total: imuHistory.length,
+      nonZeroAx: imuHistory.filter(d => d.ax !== 0).length,
+      nonZeroAy: imuHistory.filter(d => d.ay !== 0).length,
+      nonZeroGz: imuHistory.filter(d => d.gz !== 0).length
+    });
     
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
@@ -333,7 +378,7 @@ function App() {
     console.log('💾 Enregistrements finaux:', finalRecordings.map(r => ({
       label: r.label,
       imuPoints: r.imuData?.length || 0,
-      sampleData: r.imuData?.slice(0, 3) // Afficher les 3 premières mesures pour debug
+      aperçu: r.imuData?.slice(0, 2)
     })));
 
     const newSession = {
@@ -368,11 +413,18 @@ function App() {
         const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
         const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
         
-        console.log('CSV Row:', row.label, '- ax:', axList.substring(0, 50), '- ay:', ayList.substring(0, 50), '- gz:', gzList.substring(0, 50));
+        console.log(`📄 CSV génération - ${row.label}:`, {
+          mesures: row.imuData?.length || 0,
+          ax_preview: axList.substring(0, 50),
+          ay_preview: ayList.substring(0, 50),
+          gz_preview: gzList.substring(0, 50)
+        });
         
         return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
       })
     ].join('\n');
+
+    console.log('📄 CSV total length:', csvContent.length);
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -383,6 +435,8 @@ function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    console.log('✅ Téléchargement CSV lancé');
   };
 
   const uploadToDrive = async (data, session) => {
@@ -632,6 +686,16 @@ function App() {
             <p className="text-red-200 text-sm">
               ❌ Permission refusée. Veuillez autoriser l'accès aux capteurs dans les paramètres de votre navigateur.
             </p>
+          </div>
+        )}
+
+        {/* Avertissement capteurs */}
+        {sensorWarning && (
+          <div className="bg-amber-900 border border-amber-600 rounded-xl p-4 mb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={20} className="text-amber-300" />
+              <p className="text-amber-200 text-sm">{sensorWarning}</p>
+            </div>
           </div>
         )}
 
