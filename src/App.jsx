@@ -18,6 +18,8 @@ function App() {
   const [imuPermission, setImuPermission] = useState(false);
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
+  // URL de votre Google Apps Script - REMPLACEZ PAR VOTRE URL !
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz6NDkxXzovO-eY4e2i1366U97xbHtwUtcqZ0z9tPQrug3JxdZKSVsZUeKaocA0ivd/exec';
   const [needsPermission, setNeedsPermission] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [sensorWarning, setSensorWarning] = useState('');
@@ -422,55 +424,127 @@ function App() {
     addDebugLog('✅ Téléchargement lancé', 'success');
   };
 
-  // CORRECTION: Upload vers Google Drive via l'API Vercel
-  const uploadToDrive = async (data, session) => {
+const uploadToDrive = async (data, session) => {
     setUploadStatus('uploading');
-    addDebugLog('📤 Upload vers Drive...', 'info');
+    addDebugLog('📤 Préparation upload...', 'info');
     
-    const removeAccents = (str) => {
-      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    };
-    
-    const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
-    
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row => {
-        const axList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ax).join(';') : '';
-        const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
-        const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
-        
-        return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
-      })
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const formData = new FormData();
-    const filename = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
-    formData.append('file', blob, filename);
-
     try {
-      // Appel à l'API Vercel serverless
-      const response = await fetch('/api/upload-to-drive', {
-        method: 'POST',
-        body: formData
-      });
+      // Générer le CSV
+      const removeAccents = (str) => {
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      };
+      
+      const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+      
+      const csvContent = [
+        headers.join(','),
+        ...data.map(row => {
+          const axList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ax).join(';') : '';
+          const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
+          const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
+          
+          return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+        })
+      ].join('\n');
 
-      const result = await response.json();
+      // Convertir en base64
+      const base64CSV = btoa(unescape(encodeURIComponent(csvContent)));
+      const filename = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
 
-      if (response.ok && result.success) {
-        addDebugLog(`✅ Upload réussi: ${result.fileName}`, 'success');
-        setUploadStatus('success');
-        setTimeout(() => setUploadStatus('idle'), 3000);
-      } else {
-        throw new Error(result.message || result.error || 'Upload failed');
+      addDebugLog(`📦 CSV: ${filename} (${csvContent.length} chars)`, 'info');
+      addDebugLog(`🔐 Base64: ${base64CSV.length} chars`, 'info');
+
+      // MÉTHODE 1: Essayer avec URLSearchParams
+      addDebugLog('📡 Tentative 1: URLSearchParams...', 'info');
+      
+      try {
+        const params = new URLSearchParams();
+        params.append('file', base64CSV);
+        params.append('fileName', filename);
+
+        const response1 = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString()
+        });
+
+        const result1 = await response1.json();
+        
+        if (result1.success) {
+          addDebugLog(`✅ Upload réussi (méthode 1): ${result1.fileName}`, 'success');
+          setUploadStatus('success');
+          setTimeout(() => setUploadStatus('idle'), 3000);
+          return;
+        } else {
+          throw new Error(result1.message || 'Method 1 failed');
+        }
+      } catch (error1) {
+        addDebugLog(`⚠️ Méthode 1 échouée: ${error1.message}`, 'warning');
       }
+
+      // MÉTHODE 2: Essayer avec FormData
+      addDebugLog('📡 Tentative 2: FormData...', 'info');
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', base64CSV);
+        formData.append('fileName', filename);
+
+        const response2 = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: formData
+        });
+
+        const result2 = await response2.json();
+        
+        if (result2.success) {
+          addDebugLog(`✅ Upload réussi (méthode 2): ${result2.fileName}`, 'success');
+          setUploadStatus('success');
+          setTimeout(() => setUploadStatus('idle'), 3000);
+          return;
+        } else {
+          throw new Error(result2.message || 'Method 2 failed');
+        }
+      } catch (error2) {
+        addDebugLog(`⚠️ Méthode 2 échouée: ${error2.message}`, 'warning');
+      }
+
+      // MÉTHODE 3: Essayer avec query string dans l'URL
+      addDebugLog('📡 Tentative 3: Query string...', 'info');
+      
+      try {
+        const queryString = `?file=${encodeURIComponent(base64CSV)}&fileName=${encodeURIComponent(filename)}`;
+        
+        const response3 = await fetch(APPS_SCRIPT_URL + queryString, {
+          method: 'POST'
+        });
+
+        const result3 = await response3.json();
+        
+        if (result3.success) {
+          addDebugLog(`✅ Upload réussi (méthode 3): ${result3.fileName}`, 'success');
+          setUploadStatus('success');
+          setTimeout(() => setUploadStatus('idle'), 3000);
+          return;
+        } else {
+          throw new Error(result3.message || 'Method 3 failed');
+        }
+      } catch (error3) {
+        addDebugLog(`⚠️ Méthode 3 échouée: ${error3.message}`, 'warning');
+      }
+
+      // Si toutes les méthodes échouent
+      throw new Error('Toutes les méthodes d\'upload ont échoué. Vérifiez les logs Apps Script.');
+
     } catch (error) {
       console.error('Erreur upload:', error);
-      addDebugLog(`❌ Erreur upload: ${error.message}`, 'error');
+      addDebugLog(`❌ Upload échoué: ${error.message}`, 'error');
       setUploadStatus('error');
       
-      // Fallback: télécharger en local si l'upload échoue
+      // Fallback: télécharger en local
+      addDebugLog('💾 Téléchargement local en cours...', 'info');
       downloadCSV(data, session);
       setTimeout(() => setUploadStatus('idle'), 3000);
     }
