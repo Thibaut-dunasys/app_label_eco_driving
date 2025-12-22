@@ -1,5 +1,5 @@
 // api/test-drive.js
-// Placez ce fichier dans /api/ pour tester votre configurationn
+// Placez ce fichier dans /api/ pour tester votre configuration
 
 const { google } = require('googleapis');
 
