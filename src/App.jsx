@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Car } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Car, Edit2, Check } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -19,9 +19,9 @@ function App() {
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
   
-  // NOUVEAU: État pour le nom de la voiture
+  // NOUVEAU: État pour le nom de la voiture (sauvegardé en localStorage)
   const [carName, setCarName] = useState('');
-  const [showCarNameModal, setShowCarNameModal] = useState(false);
+  const [isEditingCarName, setIsEditingCarName] = useState(false);
   const [tempCarName, setTempCarName] = useState('');
 
   // URL du script Google Apps Script
@@ -45,7 +45,18 @@ function App() {
 
   useEffect(() => {
     loadSessions();
+    // Charger le nom de la voiture depuis localStorage
+    const savedCarName = localStorage.getItem('carName');
+    if (savedCarName) {
+      setCarName(savedCarName);
+    }
   }, []);
+
+  // Sauvegarder automatiquement le nom de la voiture
+  const saveCarName = (name) => {
+    setCarName(name);
+    localStorage.setItem('carName', name);
+  };
 
   const loadSessions = () => {
     try {
@@ -155,22 +166,7 @@ function App() {
     });
   };
 
-  // NOUVEAU: Ouvrir le modal pour demander le nom
-  const openCarNameModal = () => {
-    setTempCarName('');
-    setShowCarNameModal(true);
-  };
-
-  // NOUVEAU: Démarrer avec le nom de la voiture
-  const startSessionWithCarName = () => {
-    if (!tempCarName.trim()) {
-      alert('Veuillez entrer un nom de voiture');
-      return;
-    }
-    
-    setCarName(tempCarName.trim());
-    setShowCarNameModal(false);
-    
+  const startSession = () => {
     const now = new Date();
     setIsRunning(true);
     setStartTime(Date.now());
@@ -298,13 +294,12 @@ function App() {
       imuData: []
     });
 
-    // NOUVEAU: Ajouter le nom de la voiture à la session
     const newSession = {
       id: Date.now(),
       startDate: sessionStartDate,
       endDate: endDate,
       duration: formatTime(currentTime),
-      carName: carName, // AJOUT
+      carName: carName || 'Sans nom',
       recordings: finalRecordings
     };
 
@@ -340,8 +335,7 @@ function App() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     
-    // NOUVEAU: Nom de fichier avec nom de voiture
-    const carNamePart = session.carName ? `_${removeAccents(session.carName)}` : '';
+    const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
     const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
     
     link.setAttribute('href', url);
@@ -375,8 +369,7 @@ function App() {
 
       const base64CSV = btoa(unescape(encodeURIComponent(csvContent)));
       
-      // NOUVEAU: Nom de fichier avec nom de voiture
-      const carNamePart = session.carName ? `_${removeAccents(session.carName)}` : '';
+      const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
       const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
 
       const params = new URLSearchParams();
@@ -427,48 +420,13 @@ function App() {
 
           <div className="text-center mb-8">
             <button
-              onClick={openCarNameModal}
+              onClick={() => setCurrentPage('labeling')}
               className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-8 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg w-full sm:w-auto justify-center"
             >
               <Play size={20} />
               Nouveau trajet
             </button>
           </div>
-
-          {/* NOUVEAU: Modal nom de voiture */}
-          {showCarNameModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-600">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <Car size={24} className="text-cyan-400" />
-                  Nom de la voiture
-                </h3>
-                <input
-                  type="text"
-                  value={tempCarName}
-                  onChange={(e) => setTempCarName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && startSessionWithCarName()}
-                  placeholder="Ex: Renault Zoe, Tesla Model 3..."
-                  className="w-full px-4 py-3 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none mb-4"
-                  autoFocus
-                />
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowCarNameModal(false)}
-                    className="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={startSessionWithCarName}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-colors font-semibold"
-                  >
-                    Démarrer
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-8">
             <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Historique</h2>
@@ -491,8 +449,7 @@ function App() {
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <div className="flex-1">
-                        {/* NOUVEAU: Afficher le nom de la voiture */}
-                        {session.carName && (
+                        {session.carName && session.carName !== 'Sans nom' && (
                           <div className="flex items-center gap-2 mb-2">
                             <Car size={16} className="text-cyan-400" />
                             <span className="text-cyan-400 font-semibold text-sm">{session.carName}</span>
@@ -547,8 +504,7 @@ function App() {
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-8">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-6">Détails</h2>
             
-            {/* NOUVEAU: Afficher le nom de la voiture */}
-            {selectedSession.carName && (
+            {selectedSession.carName && selectedSession.carName !== 'Sans nom' && (
               <div className="bg-cyan-500 bg-opacity-10 border border-cyan-500 border-opacity-30 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-3">
                   <Car size={24} className="text-cyan-400" />
@@ -646,15 +602,56 @@ function App() {
           </button>
         </div>
 
+        {/* NOUVEAU: Champ nom de voiture en haut */}
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Car size={20} className="text-cyan-400" />
+            {isEditingCarName ? (
+              <div className="flex-1 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={tempCarName}
+                  onChange={(e) => setTempCarName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      saveCarName(tempCarName.trim());
+                      setIsEditingCarName(false);
+                    }
+                  }}
+                  placeholder="Nom de la voiture..."
+                  className="flex-1 px-3 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm"
+                  autoFocus
+                />
+                <button
+                  onClick={() => {
+                    saveCarName(tempCarName.trim());
+                    setIsEditingCarName(false);
+                  }}
+                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                >
+                  <Check size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-between">
+                <span className="text-white font-medium">
+                  {carName || 'Aucun véhicule'}
+                </span>
+                <button
+                  onClick={() => {
+                    setTempCarName(carName);
+                    setIsEditingCarName(true);
+                  }}
+                  className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-slate-700 rounded-lg transition-colors"
+                >
+                  <Edit2 size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-6 mb-6">
-          {/* NOUVEAU: Afficher le nom de la voiture pendant l'enregistrement */}
-          {carName && (
-            <div className="flex items-center gap-2 justify-center mb-4 text-cyan-400">
-              <Car size={20} />
-              <span className="font-semibold">{carName}</span>
-            </div>
-          )}
-          
           <div className="text-center mb-6">
             <div className="text-6xl sm:text-7xl font-mono font-bold text-white mb-2">
               {formatTime(elapsedTime)}
@@ -667,7 +664,7 @@ function App() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {!isRunning && !sessionEnded ? (
               <button
-                onClick={openCarNameModal}
+                onClick={startSession}
                 className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
               >
                 <Play size={20} />
