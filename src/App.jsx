@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Car } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -18,25 +18,20 @@ function App() {
   const [imuPermission, setImuPermission] = useState(false);
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
-  // URL de votre Google Apps Script - REMPLACEZ PAR VOTRE URL !
-  const APPS_SCRIPT_URL ="https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec";
-  const [needsPermission, setNeedsPermission] = useState(false);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [sensorWarning, setSensorWarning] = useState('');
   
-  const [showDebug, setShowDebug] = useState(false);
-  const [debugLogs, setDebugLogs] = useState([]);
+  // NOUVEAU: État pour le nom de la voiture
+  const [carName, setCarName] = useState('');
+  const [showCarNameModal, setShowCarNameModal] = useState(false);
+  const [tempCarName, setTempCarName] = useState('');
+
+  // URL du script Google Apps Script
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8iqIGX-Bav3bwvbZUy5gTI4xD8wvkfD_7E96w09vqvEzR5XHHs7Hb0h5AibP8g8ENDA/exec';
 
   const imuDataRef = useRef(imuData);
   
   useEffect(() => {
     imuDataRef.current = imuData;
   }, [imuData]);
-
-  const addDebugLog = (message, type = 'info') => {
-    const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setDebugLogs(prev => [...prev.slice(-20), { time: timestamp, message, type }]);
-  };
 
   const labels = [
     { id: 'non-aggressive', name: 'Non agressive', color: 'bg-emerald-500' },
@@ -83,47 +78,8 @@ function App() {
     return () => clearInterval(interval);
   }, [isRunning, startTime]);
 
-  const requestIMUPermission = async () => {
-    addDebugLog('Demande de permission IMU...', 'info');
-    
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      try {
-        const permissionState = await DeviceMotionEvent.requestPermission();
-        if (permissionState === 'granted') {
-          addDebugLog('✅ Permission accordée !', 'success');
-          setImuPermission(true);
-          setNeedsPermission(false);
-          setPermissionDenied(false);
-          return true;
-        } else {
-          addDebugLog('❌ Permission refusée', 'error');
-          setPermissionDenied(true);
-          setNeedsPermission(false);
-          return false;
-        }
-      } catch (err) {
-        addDebugLog('❌ Erreur permission: ' + err.message, 'error');
-        setPermissionDenied(true);
-        return false;
-      }
-    } else {
-      addDebugLog('📱 Activation directe (non-iOS)', 'success');
-      setImuPermission(true);
-      setNeedsPermission(false);
-      return true;
-    }
-  };
-
   useEffect(() => {
     if (currentPage !== 'labeling') return;
-
-    addDebugLog('Page labeling chargée', 'info');
-
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      setNeedsPermission(true);
-      addDebugLog('iOS détecté - Permission requise', 'warning');
-      return;
-    }
 
     const handleMotion = (event) => {
       const accel = event.acceleration || event.accelerationIncludingGravity;
@@ -139,15 +95,22 @@ function App() {
           gz: rotation.gamma !== null && rotation.gamma !== undefined ? Number(rotation.gamma.toFixed(2)) : 0
         };
         setImuData(newImuData);
-      } else {
-        addDebugLog('⚠️ Capteurs non disponibles', 'error');
-        setSensorWarning('Capteurs IMU non disponibles');
       }
     };
 
-    window.addEventListener('devicemotion', handleMotion);
-    setImuPermission(true);
-    addDebugLog('✅ Capteurs IMU activés', 'success');
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            window.addEventListener('devicemotion', handleMotion);
+            setImuPermission(true);
+          }
+        })
+        .catch(err => console.error('Erreur permission:', err));
+    } else {
+      window.addEventListener('devicemotion', handleMotion);
+      setImuPermission(true);
+    }
 
     return () => {
       window.removeEventListener('devicemotion', handleMotion);
@@ -155,36 +118,7 @@ function App() {
   }, [currentPage]);
 
   useEffect(() => {
-    if (!imuPermission || currentPage !== 'labeling') return;
-
-    const handleMotion = (event) => {
-      const accel = event.acceleration || event.accelerationIncludingGravity;
-      const rotation = event.rotationRate;
-      
-      if (accel && rotation) {
-        const newImuData = {
-          ax: accel.x !== null && accel.x !== undefined ? Number(accel.x.toFixed(2)) : 0,
-          ay: accel.y !== null && accel.y !== undefined ? Number(accel.y.toFixed(2)) : 0,
-          az: accel.z !== null && accel.z !== undefined ? Number(accel.z.toFixed(2)) : 0,
-          gx: rotation.alpha !== null && rotation.alpha !== undefined ? Number(rotation.alpha.toFixed(2)) : 0,
-          gy: rotation.beta !== null && rotation.beta !== undefined ? Number(rotation.beta.toFixed(2)) : 0,
-          gz: rotation.gamma !== null && rotation.gamma !== undefined ? Number(rotation.gamma.toFixed(2)) : 0
-        };
-        setImuData(newImuData);
-      }
-    };
-
-    window.addEventListener('devicemotion', handleMotion);
-
-    return () => {
-      window.removeEventListener('devicemotion', handleMotion);
-    };
-  }, [imuPermission, currentPage]);
-
-  useEffect(() => {
     if (!isRunning) return;
-
-    addDebugLog('🔴 Démarrage enregistrement IMU à 2Hz', 'success');
 
     const interval = setInterval(() => {
       const currentImuData = imuDataRef.current;
@@ -196,22 +130,10 @@ function App() {
         gz: Number(currentImuData.gz) || 0
       };
       
-      setImuHistory(prev => {
-        const updated = [...prev, dataPoint];
-        
-        if (updated.length % 10 === 0) {
-          const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
-          addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null)`, 'info');
-        }
-        
-        return updated;
-      });
+      setImuHistory(prev => [...prev, dataPoint]);
     }, 500);
 
-    return () => {
-      clearInterval(interval);
-      addDebugLog('🛑 Arrêt enregistrement IMU', 'warning');
-    };
+    return () => clearInterval(interval);
   }, [isRunning]);
 
   const formatTime = (ms) => {
@@ -233,9 +155,23 @@ function App() {
     });
   };
 
-  const startSession = () => {
+  // NOUVEAU: Ouvrir le modal pour demander le nom
+  const openCarNameModal = () => {
+    setTempCarName('');
+    setShowCarNameModal(true);
+  };
+
+  // NOUVEAU: Démarrer avec le nom de la voiture
+  const startSessionWithCarName = () => {
+    if (!tempCarName.trim()) {
+      alert('Veuillez entrer un nom de voiture');
+      return;
+    }
+    
+    setCarName(tempCarName.trim());
+    setShowCarNameModal(false);
+    
     const now = new Date();
-    addDebugLog('🚀 Démarrage session', 'success');
     setIsRunning(true);
     setStartTime(Date.now());
     setSessionStartDate(now);
@@ -246,7 +182,6 @@ function App() {
     setCurrentSessionData(null);
     setImuHistory([]);
     setUploadStatus('idle');
-    setSensorWarning('');
   };
 
   const toggleLabel = (labelId) => {
@@ -259,7 +194,6 @@ function App() {
     
     if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
       const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
-      addDebugLog(`📝 Init: ${initImuData.length} mesures`, 'info');
       
       newRecordings.push({
         label: 'Initialisation',
@@ -279,9 +213,6 @@ function App() {
       const periodImuData = imuHistory.filter(d => 
         d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
-      
-      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
-      addDebugLog(`✅ ${labelName}: ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
       
       newRecordings.push({
         label: labelName,
@@ -315,7 +246,6 @@ function App() {
         });
       });
       
-      addDebugLog(`▶️ ${labelName} activé`, 'info');
       setActiveLabels({ [labelId]: { time: currentTime, timestamp: currentTimestamp } });
       setRecordings(newRecordings);
     }
@@ -326,9 +256,6 @@ function App() {
     const currentTime = elapsedTime;
     const endDate = new Date();
     const currentTimestamp = Date.now();
-    
-    const nonZero = imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
-    addDebugLog(`🏁 Fin: ${imuHistory.length} mesures (${nonZero} non-null)`, 'success');
     
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
@@ -371,11 +298,13 @@ function App() {
       imuData: []
     });
 
+    // NOUVEAU: Ajouter le nom de la voiture à la session
     const newSession = {
       id: Date.now(),
       startDate: sessionStartDate,
       endDate: endDate,
       duration: formatTime(currentTime),
+      carName: carName, // AJOUT
       recordings: finalRecordings
     };
 
@@ -387,8 +316,6 @@ function App() {
     setIsRunning(false);
     setSessionEnded(true);
     setCurrentSessionData(newSession);
-    
-    addDebugLog('💾 Session sauvegardée', 'success');
   };
 
   const downloadCSV = (data, session) => {
@@ -409,27 +336,26 @@ function App() {
       })
     ].join('\n');
 
-    addDebugLog(`📄 CSV généré: ${csvContent.length} chars`, 'success');
-
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
+    
+    // NOUVEAU: Nom de fichier avec nom de voiture
+    const carNamePart = session.carName ? `_${removeAccents(session.carName)}` : '';
+    const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+    
     link.setAttribute('href', url);
-    link.setAttribute('download', `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    link.setAttribute('download', filename);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    addDebugLog('✅ Téléchargement lancé', 'success');
   };
 
-const uploadToDrive = async (data, session) => {
+  const uploadToDrive = async (data, session) => {
     setUploadStatus('uploading');
-    addDebugLog('📤 Préparation upload...', 'info');
     
     try {
-      // Générer le CSV
       const removeAccents = (str) => {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
@@ -447,104 +373,35 @@ const uploadToDrive = async (data, session) => {
         })
       ].join('\n');
 
-      // Convertir en base64
       const base64CSV = btoa(unescape(encodeURIComponent(csvContent)));
-      const filename = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
-
-      addDebugLog(`📦 CSV: ${filename} (${csvContent.length} chars)`, 'info');
-      addDebugLog(`🔐 Base64: ${base64CSV.length} chars`, 'info');
-
-      // MÉTHODE 1: Essayer avec URLSearchParams
-      addDebugLog('📡 Tentative 1: URLSearchParams...', 'info');
       
-      try {
-        const params = new URLSearchParams();
-        params.append('file', base64CSV);
-        params.append('fileName', filename);
+      // NOUVEAU: Nom de fichier avec nom de voiture
+      const carNamePart = session.carName ? `_${removeAccents(session.carName)}` : '';
+      const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
 
-        const response1 = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: params.toString()
-        });
+      const params = new URLSearchParams();
+      params.append('file', base64CSV);
+      params.append('fileName', filename);
 
-        const result1 = await response1.json();
-        
-        if (result1.success) {
-          addDebugLog(`✅ Upload réussi (méthode 1): ${result1.fileName}`, 'success');
-          setUploadStatus('success');
-          setTimeout(() => setUploadStatus('idle'), 3000);
-          return;
-        } else {
-          throw new Error(result1.message || 'Method 1 failed');
-        }
-      } catch (error1) {
-        addDebugLog(`⚠️ Méthode 1 échouée: ${error1.message}`, 'warning');
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString()
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setUploadStatus('success');
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      } else {
+        throw new Error(result.message || 'Upload failed');
       }
-
-      // MÉTHODE 2: Essayer avec FormData
-      addDebugLog('📡 Tentative 2: FormData...', 'info');
-      
-      try {
-        const formData = new FormData();
-        formData.append('file', base64CSV);
-        formData.append('fileName', filename);
-
-        const response2 = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          body: formData
-        });
-
-        const result2 = await response2.json();
-        
-        if (result2.success) {
-          addDebugLog(`✅ Upload réussi (méthode 2): ${result2.fileName}`, 'success');
-          setUploadStatus('success');
-          setTimeout(() => setUploadStatus('idle'), 3000);
-          return;
-        } else {
-          throw new Error(result2.message || 'Method 2 failed');
-        }
-      } catch (error2) {
-        addDebugLog(`⚠️ Méthode 2 échouée: ${error2.message}`, 'warning');
-      }
-
-      // MÉTHODE 3: Essayer avec query string dans l'URL
-      addDebugLog('📡 Tentative 3: Query string...', 'info');
-      
-      try {
-        const queryString = `?file=${encodeURIComponent(base64CSV)}&fileName=${encodeURIComponent(filename)}`;
-        
-        const response3 = await fetch(APPS_SCRIPT_URL + queryString, {
-          method: 'POST'
-        });
-
-        const result3 = await response3.json();
-        
-        if (result3.success) {
-          addDebugLog(`✅ Upload réussi (méthode 3): ${result3.fileName}`, 'success');
-          setUploadStatus('success');
-          setTimeout(() => setUploadStatus('idle'), 3000);
-          return;
-        } else {
-          throw new Error(result3.message || 'Method 3 failed');
-        }
-      } catch (error3) {
-        addDebugLog(`⚠️ Méthode 3 échouée: ${error3.message}`, 'warning');
-      }
-
-      // Si toutes les méthodes échouent
-      throw new Error('Toutes les méthodes d\'upload ont échoué. Vérifiez les logs Apps Script.');
-
     } catch (error) {
       console.error('Erreur upload:', error);
-      addDebugLog(`❌ Upload échoué: ${error.message}`, 'error');
       setUploadStatus('error');
-      
-      // Fallback: télécharger en local
-      addDebugLog('💾 Téléchargement local en cours...', 'info');
       downloadCSV(data, session);
       setTimeout(() => setUploadStatus('idle'), 3000);
     }
@@ -557,8 +414,6 @@ const uploadToDrive = async (data, session) => {
     }
   };
 
-  // [Pages Home et Details - identiques à avant, je garde le code complet pour référence]
-  
   if (currentPage === 'home') {
     return (
       <div className="min-h-screen bg-slate-700 p-4 sm:p-8">
@@ -572,13 +427,48 @@ const uploadToDrive = async (data, session) => {
 
           <div className="text-center mb-8">
             <button
-              onClick={() => setCurrentPage('labeling')}
+              onClick={openCarNameModal}
               className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-8 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg w-full sm:w-auto justify-center"
             >
               <Play size={20} />
               Nouveau trajet
             </button>
           </div>
+
+          {/* NOUVEAU: Modal nom de voiture */}
+          {showCarNameModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-slate-600">
+                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <Car size={24} className="text-cyan-400" />
+                  Nom de la voiture
+                </h3>
+                <input
+                  type="text"
+                  value={tempCarName}
+                  onChange={(e) => setTempCarName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && startSessionWithCarName()}
+                  placeholder="Ex: Renault Zoe, Tesla Model 3..."
+                  className="w-full px-4 py-3 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none mb-4"
+                  autoFocus
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCarNameModal(false)}
+                    className="flex-1 px-4 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={startSessionWithCarName}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-colors font-semibold"
+                  >
+                    Démarrer
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-8">
             <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Historique</h2>
@@ -601,6 +491,13 @@ const uploadToDrive = async (data, session) => {
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <div className="flex-1">
+                        {/* NOUVEAU: Afficher le nom de la voiture */}
+                        {session.carName && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Car size={16} className="text-cyan-400" />
+                            <span className="text-cyan-400 font-semibold text-sm">{session.carName}</span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mb-2">
                           <Clock size={16} className="text-slate-400" />
                           <span className="text-white font-medium text-sm sm:text-base">
@@ -650,6 +547,19 @@ const uploadToDrive = async (data, session) => {
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-8">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-6">Détails</h2>
             
+            {/* NOUVEAU: Afficher le nom de la voiture */}
+            {selectedSession.carName && (
+              <div className="bg-cyan-500 bg-opacity-10 border border-cyan-500 border-opacity-30 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <Car size={24} className="text-cyan-400" />
+                  <div>
+                    <p className="text-xs text-cyan-300 mb-1">Véhicule</p>
+                    <p className="text-xl font-semibold text-white">{selectedSession.carName}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
                 <p className="text-slate-400 text-xs mb-1 font-mono">Début</p>
@@ -688,7 +598,18 @@ const uploadToDrive = async (data, session) => {
               ))}
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => uploadToDrive(selectedSession.recordings, selectedSession)}
+                disabled={uploadStatus === 'uploading'}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download size={18} />
+                {uploadStatus === 'uploading' ? 'Envoi...' : 
+                 uploadStatus === 'success' ? 'Envoyé !' :
+                 uploadStatus === 'error' ? 'Erreur' :
+                 'Envoyer Drive'}
+              </button>
               <button
                 onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
                 className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
@@ -703,296 +624,155 @@ const uploadToDrive = async (data, session) => {
     );
   }
 
-  // Page de labelisation
   return (
     <div className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe">
       <div className="max-w-4xl mx-auto">
-        <button
-          onClick={() => setShowDebug(!showDebug)}
-          className="fixed top-4 right-4 z-50 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg active:scale-95"
-        >
-          <Bug size={24} />
-        </button>
-
-        {showDebug && (
-          <div className="fixed top-16 right-4 z-40 bg-slate-900 border border-purple-500 rounded-lg p-4 shadow-2xl max-w-sm max-h-96 overflow-y-auto">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-white font-bold flex items-center gap-2">
-                <Bug size={18} />
-                Debug
-              </h3>
-              <button
-                onClick={() => setDebugLogs([])}
-                className="text-slate-400 hover:text-white text-xs"
-              >
-                Effacer
-              </button>
-            </div>
-            <div className="space-y-1">
-              {debugLogs.length === 0 ? (
-                <p className="text-slate-400 text-xs">Aucun log</p>
-              ) : (
-                debugLogs.map((log, idx) => (
-                  <div key={idx} className="text-xs font-mono">
-                    <span className="text-slate-500">{log.time}</span>
-                    <span className={`ml-2 ${
-                      log.type === 'error' ? 'text-red-400' :
-                      log.type === 'warning' ? 'text-amber-400' :
-                      log.type === 'success' ? 'text-green-400' :
-                      'text-slate-300'
-                    }`}>
-                      {log.message}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            <div className="mt-4 pt-3 border-t border-slate-700">
-              <p className="text-xs font-bold text-white mb-2">Statistiques</p>
-              <div className="space-y-1 text-xs text-slate-300 font-mono">
-                <div>Mesures totales: <span className="text-cyan-400">{imuHistory.length}</span></div>
-                <div>Non-nulles: <span className="text-green-400">
-                  {imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length}
-                </span></div>
-                <div>Events: <span className="text-purple-400">{recordings.length}</span></div>
-                <div>IMU actuel: <span className="text-amber-400">
-                  ax:{imuData.ax} ay:{imuData.ay} gz:{imuData.gz}
-                </span></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={() => {
-            if (isRunning) {
-              if (window.confirm('Voulez-vous vraiment quitter ? La session en cours sera perdue.')) {
-                setIsRunning(false);
-                setCurrentPage('home');
+        <div className="flex justify-between items-center mb-6">
+          <button
+            onClick={() => {
+              if (isRunning && !window.confirm('Êtes-vous sûr de vouloir quitter ? Le trajet en cours sera perdu.')) {
+                return;
               }
-            } else {
               setCurrentPage('home');
-            }
-          }}
-          className="mb-4 text-slate-300 hover:text-white inline-flex items-center gap-2 active:scale-95"
-        >
-          <ArrowLeft size={18} />
-          Retour
-        </button>
-
-        {needsPermission && !imuPermission && (
-          <div className="bg-blue-900 border border-blue-600 rounded-xl p-6 mb-4">
-            <div className="flex items-start gap-4">
-              <Smartphone className="text-blue-300 flex-shrink-0 mt-1" size={24} />
-              <div className="flex-1">
-                <h3 className="text-white font-semibold mb-2">Autorisation requise</h3>
-                <p className="text-blue-200 text-sm mb-4">
-                  Pour enregistrer les données de l'accéléromètre, veuillez autoriser l'accès aux capteurs de mouvement.
-                </p>
-                <button
-                  onClick={requestIMUPermission}
-                  className="bg-blue-500 hover:bg-blue-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2"
-                >
-                  <Smartphone size={18} />
-                  Autoriser les capteurs
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {permissionDenied && (
-          <div className="bg-red-900 border border-red-600 rounded-xl p-4 mb-4">
-            <p className="text-red-200 text-sm">
-              ❌ Permission refusée. Veuillez autoriser l'accès aux capteurs dans les paramètres de votre navigateur.
-            </p>
-          </div>
-        )}
-
-        {sensorWarning && (
-          <div className="bg-amber-900 border border-amber-600 rounded-xl p-4 mb-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={20} className="text-amber-300" />
-              <p className="text-amber-200 text-sm">{sensorWarning}</p>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-          <div className="flex justify-between items-center mb-3">
-            <div>
-              <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
-              <p className="text-xs text-slate-400 font-mono mt-1">
-                {isRunning ? '🔴 Enregistrement continu à 2Hz' : 'Fréquence: 2Hz (0.5s)'}
-              </p>
-            </div>
-            <span className={`text-xs px-3 py-1 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-              {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Acc X</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.ax : '--'}
-              </p>
-            </div>
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Acc Y</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.ay : '--'}
-              </p>
-            </div>
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Gyro Z</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.gz : '--'}
-              </p>
-            </div>
-          </div>
-          {!imuPermission && (
-            <p className="text-amber-400 text-xs mt-3 text-center">
-              ⚠️ Autorisez les capteurs pour voir les données en temps réel
-            </p>
-          )}
+              setIsRunning(false);
+              setElapsedTime(0);
+              setActiveLabels({});
+              setRecordings([]);
+            }}
+            className="text-slate-300 hover:text-white inline-flex items-center gap-2 active:scale-95"
+          >
+            <ArrowLeft size={18} />
+            Retour
+          </button>
         </div>
 
-        {sessionStartDate && (
-          <div className="bg-slate-800 rounded-lg p-3 mb-4 text-center border border-slate-600">
-            <p className="text-xs text-slate-400 font-mono mb-1">Début</p>
-            <p className="text-base font-semibold text-white font-mono">{formatDateTime(sessionStartDate)}</p>
-          </div>
-        )}
-
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-6 mb-4">
-          <div className="text-center">
-            <div className="text-5xl sm:text-6xl font-mono font-bold text-white mb-6">
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-6 mb-6">
+          {/* NOUVEAU: Afficher le nom de la voiture pendant l'enregistrement */}
+          {carName && (
+            <div className="flex items-center gap-2 justify-center mb-4 text-cyan-400">
+              <Car size={20} />
+              <span className="font-semibold">{carName}</span>
+            </div>
+          )}
+          
+          <div className="text-center mb-6">
+            <div className="text-6xl sm:text-7xl font-mono font-bold text-white mb-2">
               {formatTime(elapsedTime)}
             </div>
-            
+            <p className="text-slate-400 text-sm font-mono">
+              {isRunning ? '● Enregistrement en cours' : '○ En pause'}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {!isRunning && !sessionEnded ? (
               <button
-                onClick={startSession}
-                disabled={!imuPermission}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
+                onClick={openCarNameModal}
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
               >
-                <Play size={24} />
+                <Play size={20} />
                 Démarrer
               </button>
             ) : isRunning ? (
               <button
                 onClick={endSession}
-                className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 active:scale-95 text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
+                className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 active:scale-95 text-white px-8 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
               >
-                <Square size={24} />
-                Terminer
+                <Square size={20} />
+                Arrêter
               </button>
-            ) : (
-              <div className="space-y-4">
-                {uploadStatus === 'idle' && <p className="text-green-400 text-lg font-semibold">✓ Session terminée</p>}
-                {uploadStatus === 'uploading' && <p className="text-blue-400 text-lg font-semibold">⏳ Envoi en cours...</p>}
-                {uploadStatus === 'success' && <p className="text-green-400 text-lg font-semibold">✓ Envoyé avec succès !</p>}
-                {uploadStatus === 'error' && <p className="text-orange-400 text-lg font-semibold">⚠️ Erreur d'envoi - Téléchargement local effectué</p>}
-                
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <button
-                    onClick={() => uploadToDrive(currentSessionData.recordings, currentSessionData)}
-                    disabled={uploadStatus === 'uploading'}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
-                  >
-                    <Download size={20} />
-                    {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
-                  </button>
-                  <button
-                    onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
-                  >
-                    <Download size={20} />
-                    Télécharger CSV
-                  </button>
-                </div>
-              </div>
-            )}
-            {!imuPermission && !isRunning && !sessionEnded && (
-              <p className="text-amber-400 text-sm mt-3">
-                ⚠️ Autorisez d'abord les capteurs pour démarrer
-              </p>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-          <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
-          <div className="grid grid-cols-1 gap-3">
-            {labels.map(label => (
+        {(isRunning || sessionEnded) && (
+          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-6 mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Capteurs IMU (2Hz)</h3>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
+                <p className="text-xs text-slate-400 mb-1 font-mono">Accel X</p>
+                <p className="text-lg font-bold text-cyan-400 font-mono">{imuData.ax}</p>
+              </div>
+              <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
+                <p className="text-xs text-slate-400 mb-1 font-mono">Accel Y</p>
+                <p className="text-lg font-bold text-cyan-400 font-mono">{imuData.ay}</p>
+              </div>
+              <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
+                <p className="text-xs text-slate-400 mb-1 font-mono">Gyro Z</p>
+                <p className="text-lg font-bold text-cyan-400 font-mono">{imuData.gz}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 text-center mt-3 font-mono">
+              {imuHistory.length} mesures enregistrées
+            </p>
+          </div>
+        )}
+
+        {isRunning && (
+          <div className="space-y-3">
+            {labels.map((label) => (
               <button
                 key={label.id}
                 onClick={() => toggleLabel(label.id)}
-                disabled={!isRunning}
-                className={`
-                  ${activeLabels[label.id] 
-                    ? `${label.color} ring-2 ring-white shadow-xl` 
-                    : 'bg-slate-700 border border-slate-600'
-                  }
-                  ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                  text-white px-4 py-4 rounded-lg text-base font-semibold transition-all
-                `}
+                className={`w-full p-4 sm:p-6 rounded-xl text-white font-semibold text-base sm:text-lg transition-all active:scale-95 ${
+                  activeLabels[label.id]
+                    ? `${label.color} shadow-lg ring-4 ring-white ring-opacity-50`
+                    : `${label.color} bg-opacity-70 hover:bg-opacity-100`
+                }`}
               >
-                <div className="flex items-center justify-between">
-                  <span>{label.name}</span>
-                  {activeLabels[label.id] && (
-                    <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                  )}
-                </div>
+                {label.name}
+                {activeLabels[label.id] && (
+                  <span className="ml-2 text-sm">●</span>
+                )}
               </button>
             ))}
           </div>
-        </div>
+        )}
 
-        {isRunning && recordings.length > 0 && (
-          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Événements enregistrés</h2>
-              <span className="bg-green-900 text-green-300 text-xs px-3 py-1 rounded-full font-mono">
-                {recordings.length} event{recordings.length > 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {recordings.map((rec, idx) => (
-                <div key={idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600 animate-fadeIn">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2 flex-1">
-                      <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white text-sm mb-1">{rec.label}</p>
-                        <div className="flex flex-wrap gap-2 text-xs text-slate-400 font-mono">
-                          <span>{rec.startTime} → {rec.endTime}</span>
-                          <span className="text-slate-500">•</span>
-                          <span>Durée: {rec.duration}</span>
-                          {rec.imuData && rec.imuData.length > 0 && (
-                            <>
-                              <span className="text-slate-500">•</span>
-                              <span className="text-cyan-400">{rec.imuData.length} mesures (2Hz)</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+        {sessionEnded && currentSessionData && (
+          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-6">
+            <h3 className="text-xl font-semibold text-white mb-4">Session terminée !</h3>
+            
+            <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
+              {currentSessionData.recordings.map((rec, idx) => (
+                <div key={idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-white text-sm">{rec.label}</span>
+                    <span className="text-xs text-slate-300 font-mono">{rec.duration}</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
 
-        {isRunning && imuHistory.length > 0 && (
-          <div className="bg-emerald-900 border border-emerald-600 rounded-xl p-4">
-            <div className="flex items-center gap-2 justify-center">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-              <span className="text-emerald-200 font-mono text-sm">
-                Enregistrement continu : {imuHistory.length} mesures (2Hz)
-              </span>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => uploadToDrive(currentSessionData.recordings, currentSessionData)}
+                disabled={uploadStatus === 'uploading'}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download size={18} />
+                {uploadStatus === 'uploading' ? 'Envoi...' : 
+                 uploadStatus === 'success' ? 'Envoyé !' :
+                 uploadStatus === 'error' ? 'Erreur' :
+                 'Envoyer Drive'}
+              </button>
+              <button
+                onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
+              >
+                <Download size={18} />
+                Télécharger CSV
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentPage('home');
+                  setSessionEnded(false);
+                  setCurrentSessionData(null);
+                }}
+                className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-lg font-semibold w-full sm:w-auto"
+              >
+                Retour
+              </button>
             </div>
           </div>
         )}
