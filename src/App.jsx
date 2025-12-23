@@ -25,7 +25,7 @@ function App() {
   const [tempCarName, setTempCarName] = useState('');
 
   // URL du script Google Apps Script
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8iqIGX-Bav3bwvbZUy5gTI4xD8wvkfD_7E96w09vqvEzR5XHHs7Hb0h5AibP8g8ENDA/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec';
 
   const imuDataRef = useRef(imuData);
   
