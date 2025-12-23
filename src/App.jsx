@@ -343,9 +343,11 @@ function App() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
+    
     const carNamePart = session.carName ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
     const fileName = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
     link.setAttribute('download', fileName);
+    
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -601,55 +603,6 @@ function App() {
           <ArrowLeft size={18} />
           Retour
         </button>
-
-        {/* Champ nom de voiture */}
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-          <div className="flex items-center gap-3">
-            <Car size={20} className="text-cyan-400" />
-            {isEditingCarName ? (
-              <div className="flex-1 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={tempCarName}
-                  onChange={(e) => setTempCarName(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      saveCarName(tempCarName.trim());
-                      setIsEditingCarName(false);
-                    }
-                  }}
-                  placeholder="Nom de la voiture..."
-                  className="flex-1 px-3 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm"
-                  autoFocus
-                />
-                <button
-                  onClick={() => {
-                    saveCarName(tempCarName.trim());
-                    setIsEditingCarName(false);
-                  }}
-                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
-                >
-                  <Check size={18} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-between">
-                <span className="text-white font-medium">
-                  {carName || 'Aucun véhicule'}
-                </span>
-                <button
-                  onClick={() => {
-                    setTempCarName(carName);
-                    setIsEditingCarName(true);
-                  }}
-                  className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-slate-700 rounded-lg transition-colors"
-                >
-                  <Edit2 size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
         {sessionStartDate && (
           <div className="bg-slate-800 rounded-lg p-3 mb-4 text-center border border-slate-600">
@@ -1046,21 +999,18 @@ export default App;
       startDate: sessionStartDate,
       endDate: endDate,
       duration: formatTime(currentTime),
-      carName: carName || null,
-      recordings: finalRecordings
-    };
-
-    const updatedSessions = [newSession, ...sessions];
-    saveSessions(updatedSessions);
-    
-    setRecordings(finalRecordings);
-    setActiveLabels({});
-    setIsRunning(false);
-    setSessionEnded(true);
-    setCurrentSessionData(newSession);
+        setUploadStatus('success');
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      setUploadStatus('error');
+      downloadCSV(data, session);
+      setTimeout(() => setUploadStatus('idle'), 3000);
+    }
   };
-
-
 
   const deleteSession = (sessionId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
@@ -1105,12 +1055,6 @@ export default App;
                   <div key={session.id} className="bg-slate-700 border border-slate-600 rounded-lg p-4 active:bg-slate-650">
                     <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
                       <div className="flex-1">
-                        {session.carName && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Car size={16} className="text-cyan-400" />
-                            <span className="text-cyan-400 font-semibold text-sm">{session.carName}</span>
-                          </div>
-                        )}
                         <div className="text-white font-medium font-mono text-sm mb-2">
                           {formatDateTime(session.startDate)}
                         </div>
@@ -1292,6 +1236,7 @@ export default App;
             )}
           </div>
         </div>
+
 
         {sessionStartDate && (
           <div className="bg-slate-800 rounded-lg p-3 mb-4 text-center border border-slate-600">
