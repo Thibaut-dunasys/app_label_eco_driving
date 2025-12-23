@@ -19,7 +19,7 @@ function App() {
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
   // URL de votre Google Apps Script - REMPLACEZ PAR VOTRE URL !
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzz6NDkxXzovO-eY4e2i1366U97xbHtwUtcqZ0z9tPQrug3JxdZKSVsZUeKaocA0ivd/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec';
   const [needsPermission, setNeedsPermission] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [sensorWarning, setSensorWarning] = useState('');
