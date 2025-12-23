@@ -19,12 +19,12 @@ function App() {
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
   
-  // NOUVEAU: État pour le nom de la voiture (sauvegardé en localStorage)
+  // NOUVEAU: Nom de voiture
   const [carName, setCarName] = useState('');
   const [isEditingCarName, setIsEditingCarName] = useState(false);
   const [tempCarName, setTempCarName] = useState('');
 
-  // URL du script Google Apps Script
+  // URL Google Apps Script - METTEZ VOTRE URL ICI
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8iqIGX-Bav3bwvbZUy5gTI4xD8wvkfD_7E96w09vqvEzR5XHHs7Hb0h5AibP8g8ENDA/exec';
 
   const imuDataRef = useRef(imuData);
@@ -45,14 +45,13 @@ function App() {
 
   useEffect(() => {
     loadSessions();
-    // Charger le nom de la voiture depuis localStorage
+    // Charger le nom de voiture
     const savedCarName = localStorage.getItem('carName');
     if (savedCarName) {
       setCarName(savedCarName);
     }
   }, []);
 
-  // Sauvegarder automatiquement le nom de la voiture
   const saveCarName = (name) => {
     setCarName(name);
     localStorage.setItem('carName', name);
@@ -92,33 +91,39 @@ function App() {
   useEffect(() => {
     if (currentPage !== 'labeling') return;
 
+    console.log('🎯 Activation des capteurs IMU...');
+
     const handleMotion = (event) => {
-      const accel = event.acceleration || event.accelerationIncludingGravity;
-      const rotation = event.rotationRate;
-      
-      if (accel && rotation) {
+      if (event.acceleration && event.rotationRate) {
         const newImuData = {
-          ax: accel.x !== null && accel.x !== undefined ? Number(accel.x.toFixed(2)) : 0,
-          ay: accel.y !== null && accel.y !== undefined ? Number(accel.y.toFixed(2)) : 0,
-          az: accel.z !== null && accel.z !== undefined ? Number(accel.z.toFixed(2)) : 0,
-          gx: rotation.alpha !== null && rotation.alpha !== undefined ? Number(rotation.alpha.toFixed(2)) : 0,
-          gy: rotation.beta !== null && rotation.beta !== undefined ? Number(rotation.beta.toFixed(2)) : 0,
-          gz: rotation.gamma !== null && rotation.gamma !== undefined ? Number(rotation.gamma.toFixed(2)) : 0
+          ax: event.acceleration.x?.toFixed(2) || 0,
+          ay: event.acceleration.y?.toFixed(2) || 0,
+          az: event.acceleration.z?.toFixed(2) || 0,
+          gx: event.rotationRate.alpha?.toFixed(2) || 0,
+          gy: event.rotationRate.beta?.toFixed(2) || 0,
+          gz: event.rotationRate.gamma?.toFixed(2) || 0
         };
         setImuData(newImuData);
       }
     };
 
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      console.log('📱 iOS détecté - Demande de permission...');
       DeviceMotionEvent.requestPermission()
         .then(permissionState => {
           if (permissionState === 'granted') {
+            console.log('✅ Permission accordée !');
             window.addEventListener('devicemotion', handleMotion);
             setImuPermission(true);
+          } else {
+            console.warn('❌ Permission refusée');
           }
         })
-        .catch(err => console.error('Erreur permission:', err));
+        .catch(err => {
+          console.error('❌ Erreur permission:', err);
+        });
     } else {
+      console.log('✅ Activation directe (non-iOS)');
       window.addEventListener('devicemotion', handleMotion);
       setImuPermission(true);
     }
@@ -130,6 +135,8 @@ function App() {
 
   useEffect(() => {
     if (!isRunning) return;
+
+    console.log('🔴 Démarrage enregistrement IMU à 2Hz');
 
     const interval = setInterval(() => {
       const currentImuData = imuDataRef.current;
@@ -144,7 +151,10 @@ function App() {
       setImuHistory(prev => [...prev, dataPoint]);
     }, 500);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      console.log('🛑 Arrêt enregistrement IMU');
+    };
   }, [isRunning]);
 
   const formatTime = (ms) => {
@@ -168,6 +178,7 @@ function App() {
 
   const startSession = () => {
     const now = new Date();
+    console.log('🚀 Démarrage session');
     setIsRunning(true);
     setStartTime(Date.now());
     setSessionStartDate(now);
@@ -190,6 +201,7 @@ function App() {
     
     if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
       const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
+      console.log(`📝 Initialisation - IMU data:`, initImuData.length, 'points');
       
       newRecordings.push({
         label: 'Initialisation',
@@ -209,6 +221,8 @@ function App() {
       const periodImuData = imuHistory.filter(d => 
         d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
+      
+      console.log(`📝 ${labelName} - IMU data:`, periodImuData.length, 'points');
       
       newRecordings.push({
         label: labelName,
@@ -252,6 +266,8 @@ function App() {
     const currentTime = elapsedTime;
     const endDate = new Date();
     const currentTimestamp = Date.now();
+    
+    console.log('🏁 Fin de session - Total IMU history:', imuHistory.length, 'points');
     
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
@@ -299,7 +315,7 @@ function App() {
       startDate: sessionStartDate,
       endDate: endDate,
       duration: formatTime(currentTime),
-      carName: carName || 'Sans nom',
+      carName: carName || null,
       recordings: finalRecordings
     };
 
@@ -311,6 +327,8 @@ function App() {
     setIsRunning(false);
     setSessionEnded(true);
     setCurrentSessionData(newSession);
+    
+    console.log('💾 Session sauvegardée');
   };
 
   const downloadCSV = (data, session) => {
@@ -323,9 +341,9 @@ function App() {
     const csvContent = [
       headers.join(','),
       ...data.map(row => {
-        const axList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ax).join(';') : '';
-        const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
-        const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
+        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
         
         return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
       })
@@ -335,7 +353,8 @@ function App() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     
-    const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
+    // NOUVEAU: Ajouter nom voiture au fichier
+    const carNamePart = session.carName ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
     const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
     
     link.setAttribute('href', url);
@@ -344,10 +363,13 @@ function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    console.log('✅ Téléchargement lancé');
   };
 
   const uploadToDrive = async (data, session) => {
     setUploadStatus('uploading');
+    console.log('📤 Upload vers Drive...');
     
     try {
       const removeAccents = (str) => {
@@ -369,8 +391,11 @@ function App() {
 
       const base64CSV = btoa(unescape(encodeURIComponent(csvContent)));
       
-      const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
+      // NOUVEAU: Ajouter nom voiture au fichier
+      const carNamePart = session.carName ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
       const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+
+      console.log(`📦 Envoi de ${filename}...`);
 
       const params = new URLSearchParams();
       params.append('file', base64CSV);
@@ -387,6 +412,7 @@ function App() {
       const result = await response.json();
 
       if (result.success) {
+        console.log(`✅ Upload réussi: ${result.fileName}`);
         setUploadStatus('success');
         setTimeout(() => setUploadStatus('idle'), 3000);
       } else {
@@ -394,7 +420,10 @@ function App() {
       }
     } catch (error) {
       console.error('Erreur upload:', error);
+      console.log(`❌ Erreur: ${error.message}`);
       setUploadStatus('error');
+      
+      // Fallback: télécharger en local
       downloadCSV(data, session);
       setTimeout(() => setUploadStatus('idle'), 3000);
     }
@@ -449,7 +478,7 @@ function App() {
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <div className="flex-1">
-                        {session.carName && session.carName !== 'Sans nom' && (
+                        {session.carName && (
                           <div className="flex items-center gap-2 mb-2">
                             <Car size={16} className="text-cyan-400" />
                             <span className="text-cyan-400 font-semibold text-sm">{session.carName}</span>
@@ -504,7 +533,7 @@ function App() {
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-8">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-6">Détails</h2>
             
-            {selectedSession.carName && selectedSession.carName !== 'Sans nom' && (
+            {selectedSession.carName && (
               <div className="bg-cyan-500 bg-opacity-10 border border-cyan-500 border-opacity-30 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-3">
                   <Car size={24} className="text-cyan-400" />
@@ -580,6 +609,7 @@ function App() {
     );
   }
 
+  // PAGE LABELING
   return (
     <div className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe">
       <div className="max-w-4xl mx-auto">
@@ -602,7 +632,7 @@ function App() {
           </button>
         </div>
 
-        {/* NOUVEAU: Champ nom de voiture en haut */}
+        {/* NOUVEAU: Champ nom de voiture */}
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-6">
           <div className="flex items-center gap-3">
             <Car size={20} className="text-cyan-400" />
@@ -651,6 +681,7 @@ function App() {
           </div>
         </div>
 
+        {/* Chronomètre */}
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-6 mb-6">
           <div className="text-center mb-6">
             <div className="text-6xl sm:text-7xl font-mono font-bold text-white mb-2">
@@ -682,6 +713,7 @@ function App() {
           </div>
         </div>
 
+        {/* Capteurs IMU */}
         {(isRunning || sessionEnded) && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-6 mb-6">
             <h3 className="text-lg font-semibold text-white mb-4">Capteurs IMU (2Hz)</h3>
@@ -705,6 +737,7 @@ function App() {
           </div>
         )}
 
+        {/* Labels - AFFICHÉS PENDANT L'ENREGISTREMENT */}
         {isRunning && (
           <div className="space-y-3">
             {labels.map((label) => (
@@ -726,6 +759,7 @@ function App() {
           </div>
         )}
 
+        {/* Résumé de session */}
         {sessionEnded && currentSessionData && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-6">
             <h3 className="text-xl font-semibold text-white mb-4">Session terminée !</h3>
