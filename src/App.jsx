@@ -35,9 +35,7 @@ function App() {
   useEffect(() => {
     loadSessions();
     const savedCarName = localStorage.getItem('carName');
-    if (savedCarName) {
-      setCarName(savedCarName);
-    }
+    if (savedCarName) setCarName(savedCarName);
   }, []);
 
   const saveCarName = (name) => {
@@ -343,11 +341,8 @@ function App() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    
     const carNamePart = session.carName ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
-    const fileName = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
-    link.setAttribute('download', fileName);
-    
+    link.setAttribute('download', `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -999,25 +994,19 @@ export default App;
       startDate: sessionStartDate,
       endDate: endDate,
       duration: formatTime(currentTime),
-        setUploadStatus('success');
-        setTimeout(() => setUploadStatus('idle'), 3000);
-      } else {
-        throw new Error('Upload failed');
-      }
-    } catch (error) {
-      console.error('Erreur upload:', error);
-      setUploadStatus('error');
-      downloadCSV(data, session);
-      setTimeout(() => setUploadStatus('idle'), 3000);
-    }
+      recordings: finalRecordings
+    };
+
+    const updatedSessions = [newSession, ...sessions];
+    saveSessions(updatedSessions);
+    
+    setRecordings(finalRecordings);
+    setActiveLabels({});
+    setIsRunning(false);
+    setSessionEnded(true);
+    setCurrentSessionData(newSession);
   };
 
-  const deleteSession = (sessionId) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
-      const updatedSessions = sessions.filter(s => s.id !== sessionId);
-      saveSessions(updatedSessions);
-    }
-  };
 
   // Pages
   if (currentPage === 'home') {
@@ -1236,7 +1225,6 @@ export default App;
             )}
           </div>
         </div>
-
 
         {sessionStartDate && (
           <div className="bg-slate-800 rounded-lg p-3 mb-4 text-center border border-slate-600">
