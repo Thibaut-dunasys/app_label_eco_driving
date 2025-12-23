@@ -983,6 +983,83 @@ export default App;
     setCurrentSessionData(newSession);
   };
 
+  const downloadCSV = (data, session) => {
+    const removeAccents = (str) => {
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
+    
+    const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => {
+        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+        
+        return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+      })
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const uploadToDrive = async (data, session) => {
+    setUploadStatus('uploading');
+    
+    const removeAccents = (str) => {
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
+    
+    const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => {
+        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+        
+        return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+      })
+    ].join('\n');
+
+    const fileName = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+
+    try {
+      const response = await fetch('/api/upload-to-drive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          csvContent,
+          fileName
+        })
+      });
+
+      if (response.ok) {
+        setUploadStatus('success');
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      setUploadStatus('error');
+      downloadCSV(data, session);
+      setTimeout(() => setUploadStatus('idle'), 3000);
+    }
+  };
+
   const deleteSession = (sessionId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
       const updatedSessions = sessions.filter(s => s.id !== sessionId);
