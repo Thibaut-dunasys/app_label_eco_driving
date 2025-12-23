@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Car, Edit2, Check } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2 } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -18,9 +18,6 @@ function App() {
   const [imuPermission, setImuPermission] = useState(false);
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
-  const [carName, setCarName] = useState('');
-  const [isEditingCarName, setIsEditingCarName] = useState(false);
-  const [tempCarName, setTempCarName] = useState('');
 
   const labels = [
     { id: 'non-aggressive', name: 'Non agressive', color: 'bg-emerald-500' },
@@ -34,14 +31,7 @@ function App() {
 
   useEffect(() => {
     loadSessions();
-    const savedCarName = localStorage.getItem('carName');
-    if (savedCarName) setCarName(savedCarName);
   }, []);
-
-  const saveCarName = (name) => {
-    setCarName(name);
-    localStorage.setItem('carName', name);
-  };
 
   const loadSessions = () => {
     try {
@@ -305,7 +295,6 @@ function App() {
       startDate: sessionStartDate,
       endDate: endDate,
       duration: formatTime(currentTime),
-      carName: carName || null,
       recordings: finalRecordings
     };
 
@@ -341,8 +330,7 @@ function App() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    const carNamePart = session.carName ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
-    link.setAttribute('download', `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    link.setAttribute('download', `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -352,48 +340,42 @@ function App() {
   const uploadToDrive = async (data, session) => {
     setUploadStatus('uploading');
     
+    const removeAccents = (str) => {
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
+    
+    const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => {
+        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+        
+        return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+      })
+    ].join('\n');
+
+    const fileName = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+
     try {
-      const removeAccents = (str) => {
-        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      };
-      
-      const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
-      
-      const csvContent = [
-        headers.join(','),
-        ...data.map(row => {
-          const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
-          const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
-          const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
-          
-          return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
-        })
-      ].join('\n');
-
-      const base64CSV = btoa(unescape(encodeURIComponent(csvContent)));
-      
-      const carNamePart = session.carName ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
-      const fileName = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
-
-      const params = new URLSearchParams();
-      params.append('file', base64CSV);
-      params.append('fileName', fileName);
-
-      const response = await fetch('https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec', {
+      const response = await fetch('/api/upload-to-drive', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: params.toString()
+        body: JSON.stringify({
+          csvContent,
+          fileName
+        })
       });
 
-      const result = await response.json();
-
-      if (result.success) {
+      if (response.ok) {
         setUploadStatus('success');
         setTimeout(() => setUploadStatus('idle'), 3000);
       } else {
-        throw new Error(result.message || 'Upload failed');
+        throw new Error('Upload failed');
       }
     } catch (error) {
       console.error('Erreur upload:', error);
@@ -461,12 +443,6 @@ function App() {
                   <div key={session.id} className="bg-slate-700 border border-slate-600 rounded-lg p-4 active:bg-slate-650">
                     <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
                       <div className="flex-1">
-                        {session.carName && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Car size={16} className="text-cyan-400" />
-                            <span className="text-cyan-400 font-semibold text-sm">{session.carName}</span>
-                          </div>
-                        )}
                         <div className="text-white font-medium font-mono text-sm mb-2">
                           {formatDateTime(session.startDate)}
                         </div>
@@ -1007,6 +983,89 @@ export default App;
     setCurrentSessionData(newSession);
   };
 
+  const downloadCSV = (data, session) => {
+    const removeAccents = (str) => {
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
+    
+    const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => {
+        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+        
+        return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+      })
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const uploadToDrive = async (data, session) => {
+    setUploadStatus('uploading');
+    
+    const removeAccents = (str) => {
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
+    
+    const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => {
+        const axList = row.imuData ? row.imuData.map(d => d.ax).join(';') : '';
+        const ayList = row.imuData ? row.imuData.map(d => d.ay).join(';') : '';
+        const gzList = row.imuData ? row.imuData.map(d => d.gz).join(';') : '';
+        
+        return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+      })
+    ].join('\n');
+
+    const fileName = `labelisation_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+
+    try {
+      const response = await fetch('/api/upload-to-drive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          csvContent,
+          fileName
+        })
+      });
+
+      if (response.ok) {
+        setUploadStatus('success');
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      setUploadStatus('error');
+      downloadCSV(data, session);
+      setTimeout(() => setUploadStatus('idle'), 3000);
+    }
+  };
+
+  const deleteSession = (sessionId) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
+      const updatedSessions = sessions.filter(s => s.id !== sessionId);
+      saveSessions(updatedSessions);
+    }
+  };
 
   // Pages
   if (currentPage === 'home') {
@@ -1176,55 +1235,6 @@ export default App;
           <ArrowLeft size={18} />
           Retour
         </button>
-
-        {/* Champ nom de voiture */}
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-          <div className="flex items-center gap-3">
-            <Car size={20} className="text-cyan-400" />
-            {isEditingCarName ? (
-              <div className="flex-1 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={tempCarName}
-                  onChange={(e) => setTempCarName(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      saveCarName(tempCarName.trim());
-                      setIsEditingCarName(false);
-                    }
-                  }}
-                  placeholder="Nom de la voiture..."
-                  className="flex-1 px-3 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm"
-                  autoFocus
-                />
-                <button
-                  onClick={() => {
-                    saveCarName(tempCarName.trim());
-                    setIsEditingCarName(false);
-                  }}
-                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
-                >
-                  <Check size={18} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-between">
-                <span className="text-white font-medium">
-                  {carName || 'Aucun véhicule'}
-                </span>
-                <button
-                  onClick={() => {
-                    setTempCarName(carName);
-                    setIsEditingCarName(true);
-                  }}
-                  className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-slate-700 rounded-lg transition-colors"
-                >
-                  <Edit2 size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
         {sessionStartDate && (
           <div className="bg-slate-800 rounded-lg p-3 mb-4 text-center border border-slate-600">
