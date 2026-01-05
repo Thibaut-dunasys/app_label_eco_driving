@@ -273,25 +273,40 @@ function App() {
     const newRecordings = [...recordings];
     const labelName = labels.find(l => l.id === labelId).name;
     
-    // MODE INSTANTANÉ : Enregistrer les 10 dernières secondes
+    // MODE INSTANTANÉ : Enregistrer les 10 dernières secondes (ou depuis le dernier event)
     if (mode === 'instantane') {
-      const tenSecondsAgo = currentTime - 10000; // 10 secondes avant
-      const tenSecondsAgoTimestamp = currentTimestamp - 10000;
+      let startTime = currentTime - 10000; // Par défaut : 10 secondes avant
+      let startTimestamp = currentTimestamp - 10000;
       
-      // Filtrer les données IMU des 10 dernières secondes
+      // Si un événement a été enregistré récemment, partir de sa fin
+      if (recordings.length > 0) {
+        const lastRecording = recordings[recordings.length - 1];
+        const lastEndTime = lastRecording.absoluteEndTime.getTime();
+        const timeSinceLastEvent = currentTimestamp - lastEndTime;
+        
+        // Si le dernier event s'est terminé il y a moins de 10s
+        if (timeSinceLastEvent < 10000) {
+          startTimestamp = lastEndTime;
+          startTime = currentTime - (timeSinceLastEvent);
+          addDebugLog(`🔗 Événement proche détecté : ${Math.round(timeSinceLastEvent/1000)}s depuis le dernier`, 'info');
+        }
+      }
+      
+      // Filtrer les données IMU
       const periodImuData = imuHistory.filter(d => 
-        d.timestamp >= tenSecondsAgoTimestamp && d.timestamp <= currentTimestamp
+        d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
       
       const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
-      addDebugLog(`⚡ ${labelName} (10s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
+      const duration = currentTime - startTime;
+      addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
       
       newRecordings.push({
         label: labelName,
-        startTime: formatTime(Math.max(0, tenSecondsAgo)), // Ne pas aller en négatif
+        startTime: formatTime(Math.max(0, startTime)), // Ne pas aller en négatif
         endTime: formatTime(currentTime),
-        duration: formatTime(Math.min(currentTime, 10000)), // Max 10s
-        absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, tenSecondsAgo)),
+        duration: formatTime(duration),
+        absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, startTime)),
         absoluteEndTime: new Date(sessionStartDate.getTime() + currentTime),
         imuData: periodImuData
       });
