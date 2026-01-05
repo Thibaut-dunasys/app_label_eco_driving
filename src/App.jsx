@@ -27,7 +27,7 @@ function App() {
   const [tempCarName, setTempCarName] = useState('');
   
   // NOUVEAU: Mode de labelisation
-  const [mode, setMode] = useState('borne'); // 'borne' ou 'instantane'
+  const [mode, setMode] = useState('instantane'); // 'borne' ou 'instantane' - INSTANTANÉ PAR DÉFAUT
   
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
@@ -243,6 +243,14 @@ function App() {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const formatTimeOnly = (date) => {
+    return new Date(date).toLocaleTimeString('fr-FR', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit'
@@ -465,7 +473,7 @@ function App() {
         const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
         const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
         
-        return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+        return `"${formatTimeOnly(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -506,7 +514,7 @@ function App() {
           const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
           const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
           
-          return `"${formatDateTime(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+          return `"${formatTimeOnly(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -857,28 +865,6 @@ function App() {
             <button
               onClick={() => {
                 if (!isRunning) {
-                  setMode('borne');
-                  addDebugLog('🔄 Mode Borné activé', 'info');
-                }
-              }}
-              disabled={isRunning}
-              className={`
-                ${mode === 'borne' 
-                  ? 'bg-cyan-600 border-cyan-400 ring-2 ring-cyan-400' 
-                  : 'bg-slate-700 border-slate-600'
-                }
-                ${isRunning ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyan-700 active:scale-95'}
-                border-2 text-white px-4 py-3 rounded-lg font-semibold transition-all text-sm
-              `}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <span>🎯 Borné</span>
-                <span className="text-xs opacity-80">Début → Fin</span>
-              </div>
-            </button>
-            <button
-              onClick={() => {
-                if (!isRunning) {
                   setMode('instantane');
                   addDebugLog('⚡ Mode Instantané activé (10s avant)', 'info');
                 }
@@ -898,12 +884,34 @@ function App() {
                 <span className="text-xs opacity-80">10s avant</span>
               </div>
             </button>
+            <button
+              onClick={() => {
+                if (!isRunning) {
+                  setMode('borne');
+                  addDebugLog('🔄 Mode Borné activé', 'info');
+                }
+              }}
+              disabled={isRunning}
+              className={`
+                ${mode === 'borne' 
+                  ? 'bg-cyan-600 border-cyan-400 ring-2 ring-cyan-400' 
+                  : 'bg-slate-700 border-slate-600'
+                }
+                ${isRunning ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyan-700 active:scale-95'}
+                border-2 text-white px-4 py-3 rounded-lg font-semibold transition-all text-sm
+              `}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span>🎯 Borné</span>
+                <span className="text-xs opacity-80">Début → Fin</span>
+              </div>
+            </button>
           </div>
           {!isRunning && (
             <p className="text-slate-400 text-xs mt-3 text-center">
-              {mode === 'borne' 
-                ? '📌 Appuyez 1× au début, 1× à la fin de l\'événement' 
-                : '⚡ Appuyez 1× après l\'événement (capture 10s avant)'}
+              {mode === 'instantane' 
+                ? '⚡ Appuyez 1× après l\'événement (capture 10s avant)' 
+                : '📌 Appuyez 1× au début, 1× à la fin de l\'événement'}
             </p>
           )}
           {isRunning && (
