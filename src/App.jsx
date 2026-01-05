@@ -46,7 +46,6 @@ function App() {
   };
 
   const labels = [
-    { id: 'non-aggressive', name: 'Non agressive', color: 'bg-slate-500' },
     { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-slate-600' },
     { id: 'left-turn', name: 'Virage agressif à gauche', color: 'bg-gray-500' },
     { id: 'right-lane', name: 'Changement de voie agressif à droite', color: 'bg-gray-600' },
@@ -271,6 +270,13 @@ function App() {
     setImuHistory([]);
     setUploadStatus('idle');
     setSensorWarning('');
+    
+    // NOUVEAU: En mode instantané, créer immédiatement une phase d'initialisation
+    if (mode === 'instantane') {
+      addDebugLog('📝 Initialisation automatique (mode instantané)', 'info');
+      // L'initialisation sera créée lors du premier label
+      // On marque juste qu'on est en mode instantané dans les logs
+    }
   };
 
   const toggleLabel = (labelId) => {
@@ -283,6 +289,33 @@ function App() {
     
     // MODE INSTANTANÉ : Enregistrer les 10 dernières secondes (ou depuis le dernier event)
     if (mode === 'instantane') {
+      // NOUVEAU: Créer une phase d'initialisation si c'est le premier label
+      if (recordings.length === 0) {
+        let initStartTime = 0;
+        let initEndTime = currentTime - 10000; // Jusqu'à 10s avant le premier label
+        
+        // Si on est à moins de 10s du début, l'init va jusqu'à 0
+        if (initEndTime < 0) {
+          initEndTime = 0;
+        }
+        
+        const initImuData = imuHistory.filter(d => 
+          d.timestamp <= (currentTimestamp - 10000) || d.timestamp <= sessionStartDate.getTime()
+        );
+        
+        addDebugLog(`📝 Init (mode instantané): ${initImuData.length} mesures`, 'info');
+        
+        newRecordings.push({
+          label: 'Initialisation',
+          startTime: formatTime(initStartTime),
+          endTime: formatTime(Math.max(0, initEndTime)),
+          duration: formatTime(Math.max(0, initEndTime)),
+          absoluteStartTime: sessionStartDate,
+          absoluteEndTime: new Date(sessionStartDate.getTime() + Math.max(0, initEndTime)),
+          imuData: initImuData
+        });
+      }
+      
       let startTime = currentTime - 10000; // Par défaut : 10 secondes avant
       let startTimestamp = currentTimestamp - 10000;
       
