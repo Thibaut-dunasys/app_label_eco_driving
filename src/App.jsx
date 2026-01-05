@@ -497,16 +497,7 @@ function App() {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
     
-    // Trouver le nombre maximum de mesures IMU parmi tous les événements
-    const maxImuLength = Math.max(...data.map(row => row.imuData ? row.imuData.length : 0));
-    
-    // Créer les en-têtes dynamiques
-    const baseHeaders = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)'];
-    const axHeaders = Array.from({length: maxImuLength}, (_, i) => `ax_${i+1}`);
-    const ayHeaders = Array.from({length: maxImuLength}, (_, i) => `ay_${i+1}`);
-    const gzHeaders = Array.from({length: maxImuLength}, (_, i) => `gz_${i+1}`);
-    
-    const headers = [...baseHeaders, ...axHeaders, ...ayHeaders, ...gzHeaders];
+    const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
     
     const csvContent = [
       headers.join(','),
@@ -520,26 +511,18 @@ function App() {
           durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
         }
         
-        // Extraire les valeurs IMU (sans guillemets, valeurs numériques)
-        const axValues = Array.from({length: maxImuLength}, (_, i) => 
-          row.imuData && row.imuData[i] ? row.imuData[i].ax : ''
-        );
-        const ayValues = Array.from({length: maxImuLength}, (_, i) => 
-          row.imuData && row.imuData[i] ? row.imuData[i].ay : ''
-        );
-        const gzValues = Array.from({length: maxImuLength}, (_, i) => 
-          row.imuData && row.imuData[i] ? row.imuData[i].gz : ''
-        );
+        // Créer des listes au format [val1,val2,val3]
+        const axList = row.imuData && row.imuData.length > 0 
+          ? '[' + row.imuData.map(d => d.ax).join(',') + ']'
+          : '[]';
+        const ayList = row.imuData && row.imuData.length > 0 
+          ? '[' + row.imuData.map(d => d.ay).join(',') + ']'
+          : '[]';
+        const gzList = row.imuData && row.imuData.length > 0 
+          ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
+          : '[]';
         
-        // Construire la ligne (label et heures entre guillemets, nombres sans guillemets)
-        const baseValues = [
-          `"${removeAccents(row.label)}"`,
-          `"${formatTimeOnly(row.absoluteStartTime)}"`,
-          `"${formatTimeOnly(row.absoluteEndTime)}"`,
-          durationSeconds.toFixed(2)
-        ];
-        
-        return [...baseValues, ...axValues, ...ayValues, ...gzValues].join(',');
+        return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -571,16 +554,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      // Trouver le nombre maximum de mesures IMU parmi tous les événements
-      const maxImuLength = Math.max(...data.map(row => row.imuData ? row.imuData.length : 0));
-      
-      // Créer les en-têtes dynamiques
-      const baseHeaders = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)'];
-      const axHeaders = Array.from({length: maxImuLength}, (_, i) => `ax_${i+1}`);
-      const ayHeaders = Array.from({length: maxImuLength}, (_, i) => `ay_${i+1}`);
-      const gzHeaders = Array.from({length: maxImuLength}, (_, i) => `gz_${i+1}`);
-      
-      const headers = [...baseHeaders, ...axHeaders, ...ayHeaders, ...gzHeaders];
+      const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -594,26 +568,18 @@ function App() {
             durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
           }
           
-          // Extraire les valeurs IMU (sans guillemets, valeurs numériques)
-          const axValues = Array.from({length: maxImuLength}, (_, i) => 
-            row.imuData && row.imuData[i] ? row.imuData[i].ax : ''
-          );
-          const ayValues = Array.from({length: maxImuLength}, (_, i) => 
-            row.imuData && row.imuData[i] ? row.imuData[i].ay : ''
-          );
-          const gzValues = Array.from({length: maxImuLength}, (_, i) => 
-            row.imuData && row.imuData[i] ? row.imuData[i].gz : ''
-          );
+          // Créer des listes au format [val1,val2,val3]
+          const axList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.ax).join(',') + ']'
+            : '[]';
+          const ayList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.ay).join(',') + ']'
+            : '[]';
+          const gzList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
+            : '[]';
           
-          // Construire la ligne (label et heures entre guillemets, nombres sans guillemets)
-          const baseValues = [
-            `"${removeAccents(row.label)}"`,
-            `"${formatTimeOnly(row.absoluteStartTime)}"`,
-            `"${formatTimeOnly(row.absoluteEndTime)}"`,
-            durationSeconds.toFixed(2)
-          ];
-          
-          return [...baseValues, ...axValues, ...ayValues, ...gzValues].join(',');
+          return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${gzList}"`;
         })
       ].join('\n');
 
