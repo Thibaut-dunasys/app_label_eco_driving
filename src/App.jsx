@@ -497,16 +497,28 @@ function App() {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
     
-    const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+    // NOUVEAU FORMAT CSV
+    const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
     
     const csvContent = [
       headers.join(','),
       ...data.map(row => {
+        // Convertir la durée en secondes décimales
+        const durationParts = row.duration.split(':');
+        let durationSeconds = 0;
+        if (durationParts.length === 2) {
+          // Format MM:SS.MS
+          const [minutes, secondsWithMs] = durationParts;
+          const [seconds, ms] = secondsWithMs.split('.');
+          durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
+        }
+        
+        // Listes de valeurs IMU
         const axList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ax).join(';') : '';
         const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
         const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
         
-        return `"${formatTimeOnly(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+        return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}","${durationSeconds.toFixed(2)}","${axList}","${ayList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -538,16 +550,28 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['Heure', 'Label', 'Debut chrono', 'Fin chrono', 'Duree', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+      // NOUVEAU FORMAT CSV
+      const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
         ...data.map(row => {
+          // Convertir la durée en secondes décimales
+          const durationParts = row.duration.split(':');
+          let durationSeconds = 0;
+          if (durationParts.length === 2) {
+            // Format MM:SS.MS
+            const [minutes, secondsWithMs] = durationParts;
+            const [seconds, ms] = secondsWithMs.split('.');
+            durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
+          }
+          
+          // Listes de valeurs IMU
           const axList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ax).join(';') : '';
           const ayList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.ay).join(';') : '';
           const gzList = row.imuData && row.imuData.length > 0 ? row.imuData.map(d => d.gz).join(';') : '';
           
-          return `"${formatTimeOnly(row.absoluteStartTime)}","${removeAccents(row.label)}","${row.startTime}","${row.endTime}","${row.duration}","${axList}","${ayList}","${gzList}"`;
+          return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}","${durationSeconds.toFixed(2)}","${axList}","${ayList}","${gzList}"`;
         })
       ].join('\n');
 
