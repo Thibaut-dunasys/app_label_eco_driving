@@ -26,6 +26,9 @@ function App() {
   const [isEditingCarName, setIsEditingCarName] = useState(false);
   const [tempCarName, setTempCarName] = useState('');
   
+  // NOUVEAU: Mode de labelisation
+  const [mode, setMode] = useState('borne'); // 'borne' ou 'instantane'
+  
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
 
@@ -270,6 +273,34 @@ function App() {
     const newRecordings = [...recordings];
     const labelName = labels.find(l => l.id === labelId).name;
     
+    // MODE INSTANTANÉ : Enregistrer les 10 dernières secondes
+    if (mode === 'instantane') {
+      const tenSecondsAgo = currentTime - 10000; // 10 secondes avant
+      const tenSecondsAgoTimestamp = currentTimestamp - 10000;
+      
+      // Filtrer les données IMU des 10 dernières secondes
+      const periodImuData = imuHistory.filter(d => 
+        d.timestamp >= tenSecondsAgoTimestamp && d.timestamp <= currentTimestamp
+      );
+      
+      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+      addDebugLog(`⚡ ${labelName} (10s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
+      
+      newRecordings.push({
+        label: labelName,
+        startTime: formatTime(Math.max(0, tenSecondsAgo)), // Ne pas aller en négatif
+        endTime: formatTime(currentTime),
+        duration: formatTime(Math.min(currentTime, 10000)), // Max 10s
+        absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, tenSecondsAgo)),
+        absoluteEndTime: new Date(sessionStartDate.getTime() + currentTime),
+        imuData: periodImuData
+      });
+      
+      setRecordings(newRecordings);
+      return;
+    }
+    
+    // MODE BORNÉ (comportement actuel)
     if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
       const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
       addDebugLog(`📝 Init: ${initImuData.length} mesures`, 'info');
@@ -804,6 +835,69 @@ function App() {
           </div>
         </div>
 
+        {/* NOUVEAU: Sélecteur de mode */}
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
+          <h3 className="text-white font-semibold mb-3 text-sm">Mode de labelisation</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => {
+                if (!isRunning) {
+                  setMode('borne');
+                  addDebugLog('🔄 Mode Borné activé', 'info');
+                }
+              }}
+              disabled={isRunning}
+              className={`
+                ${mode === 'borne' 
+                  ? 'bg-cyan-600 border-cyan-400 ring-2 ring-cyan-400' 
+                  : 'bg-slate-700 border-slate-600'
+                }
+                ${isRunning ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cyan-700 active:scale-95'}
+                border-2 text-white px-4 py-3 rounded-lg font-semibold transition-all text-sm
+              `}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span>🎯 Borné</span>
+                <span className="text-xs opacity-80">Début → Fin</span>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                if (!isRunning) {
+                  setMode('instantane');
+                  addDebugLog('⚡ Mode Instantané activé (10s avant)', 'info');
+                }
+              }}
+              disabled={isRunning}
+              className={`
+                ${mode === 'instantane' 
+                  ? 'bg-purple-600 border-purple-400 ring-2 ring-purple-400' 
+                  : 'bg-slate-700 border-slate-600'
+                }
+                ${isRunning ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-700 active:scale-95'}
+                border-2 text-white px-4 py-3 rounded-lg font-semibold transition-all text-sm
+              `}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span>⚡ Instantané</span>
+                <span className="text-xs opacity-80">10s avant</span>
+              </div>
+            </button>
+          </div>
+          {!isRunning && (
+            <p className="text-slate-400 text-xs mt-3 text-center">
+              {mode === 'borne' 
+                ? '📌 Appuyez 1× au début, 1× à la fin de l\'événement' 
+                : '⚡ Appuyez 1× après l\'événement (capture 10s avant)'}
+            </p>
+          )}
+          {isRunning && (
+            <p className="text-amber-400 text-xs mt-3 text-center">
+              🔒 Mode verrouillé pendant l'enregistrement
+            </p>
+          )}
+        </div>
+
         {needsPermission && !imuPermission && (
           <div className="bg-blue-900 border border-blue-600 rounded-xl p-6 mb-4">
             <div className="flex items-start gap-4">
@@ -954,7 +1048,7 @@ function App() {
                 onClick={() => toggleLabel(label.id)}
                 disabled={!isRunning}
                 className={`
-                  ${activeLabels[label.id] 
+                  ${mode === 'borne' && activeLabels[label.id] 
                     ? `${label.color} ring-2 ring-white shadow-xl` 
                     : `${label.color}`
                   }
@@ -964,13 +1058,23 @@ function App() {
               >
                 <div className="flex items-center justify-between">
                   <span>{label.name}</span>
-                  {activeLabels[label.id] && (
+                  {mode === 'borne' && activeLabels[label.id] && (
                     <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                  )}
+                  {mode === 'instantane' && isRunning && (
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
                   )}
                 </div>
               </button>
             ))}
           </div>
+          {isRunning && (
+            <p className="text-slate-400 text-xs mt-3 text-center">
+              {mode === 'borne' 
+                ? '🎯 Cliquez pour démarrer/arrêter chaque phase' 
+                : '⚡ Cliquez après chaque événement (10s avant)'}
+            </p>
+          )}
         </div>
 
         {isRunning && recordings.length > 0 && (
