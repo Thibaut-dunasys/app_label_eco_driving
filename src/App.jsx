@@ -32,6 +32,9 @@ function App() {
   // NOUVEAU: Feedback visuel pour les clics sur labels
   const [clickedLabel, setClickedLabel] = useState(null);
   
+  // NOUVEAU: Labels en attente (mode instantané - attente 5s après le clic)
+  const [pendingLabels, setPendingLabels] = useState({});
+  
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
 
@@ -308,20 +311,20 @@ function App() {
     const newRecordings = [...recordings];
     const labelName = labels.find(l => l.id === labelId).name;
     
-    // MODE INSTANTANÉ : Enregistrer les 10 dernières secondes (ou depuis le dernier event)
+    // MODE INSTANTANÉ : Enregistrer 5s avant + 5s après le clic
     if (mode === 'instantane') {
       // NOUVEAU: Créer une phase d'initialisation si c'est le premier label
-      if (recordings.length === 0) {
+      if (recordings.length === 0 && Object.keys(pendingLabels).length === 0) {
         let initStartTime = 0;
-        let initEndTime = currentTime - 10000; // Jusqu'à 10s avant le premier label
+        let initEndTime = currentTime - 5000; // Jusqu'à 5s avant le premier label
         
-        // Si on est à moins de 10s du début, l'init va jusqu'à 0
+        // Si on est à moins de 5s du début, l'init va jusqu'à 0
         if (initEndTime < 0) {
           initEndTime = 0;
         }
         
         const initImuData = imuHistory.filter(d => 
-          d.timestamp <= (currentTimestamp - 10000) || d.timestamp <= sessionStartDate.getTime()
+          d.timestamp <= (currentTimestamp - 5000) || d.timestamp <= sessionStartDate.getTime()
         );
         
         addDebugLog(`📝 Init (mode instantané): ${initImuData.length} mesures`, 'info');
@@ -335,45 +338,75 @@ function App() {
           absoluteEndTime: new Date(sessionStartDate.getTime() + Math.max(0, initEndTime)),
           imuData: initImuData
         });
-      }
-      
-      let startTime = currentTime - 10000; // Par défaut : 10 secondes avant
-      let startTimestamp = currentTimestamp - 10000;
-      
-      // Si un événement a été enregistré récemment, partir de sa fin
-      if (recordings.length > 0) {
-        const lastRecording = recordings[recordings.length - 1];
-        const lastEndTime = lastRecording.absoluteEndTime.getTime();
-        const timeSinceLastEvent = currentTimestamp - lastEndTime;
         
-        // Si le dernier event s'est terminé il y a moins de 10s
-        if (timeSinceLastEvent < 10000) {
-          startTimestamp = lastEndTime;
-          startTime = currentTime - (timeSinceLastEvent);
-          addDebugLog(`🔗 Événement proche détecté : ${Math.round(timeSinceLastEvent/1000)}s depuis le dernier`, 'info');
-        }
+        setRecordings(newRecordings);
       }
       
-      // Filtrer les données IMU
-      const periodImuData = imuHistory.filter(d => 
-        d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
-      );
+      // Marquer le label comme "en attente" (attendre 5s après le clic)
+      const pendingKey = `${labelId}_${Date.now()}`;
+      setPendingLabels(prev => ({
+        ...prev,
+        [pendingKey]: {
+          labelId,
+          labelName,
+          clickTime: currentTime,
+          clickTimestamp: currentTimestamp
+        }
+      }));
       
-      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
-      const duration = currentTime - startTime;
-      addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
+      addDebugLog(`⏳ ${labelName} en attente (5s après...)`, 'info');
       
-      newRecordings.push({
-        label: labelName,
-        startTime: formatTime(Math.max(0, startTime)), // Ne pas aller en négatif
-        endTime: formatTime(currentTime),
-        duration: formatTime(duration),
-        absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, startTime)),
-        absoluteEndTime: new Date(sessionStartDate.getTime() + currentTime),
-        imuData: periodImuData
-      });
+      // Attendre 5 secondes puis créer l'enregistrement
+      setTimeout(() => {
+        const finalTime = Date.now() - startTime;
+        const finalTimestamp = Date.now();
+        
+        // Calculer 5s avant et 5s après le clic
+        let startTime5sBefore = currentTime - 5000;
+        let startTimestamp5sBefore = currentTimestamp - 5000;
+        
+        // Vérifier si un événement récent existe
+        const currentRecordings = [...recordings];
+        if (currentRecordings.length > 0) {
+          const lastRecording = currentRecordings[currentRecordings.length - 1];
+          const lastEndTime = lastRecording.absoluteEndTime.getTime();
+          const timeSinceLastEvent = currentTimestamp - lastEndTime;
+          
+          // Si le dernier event s'est terminé il y a moins de 5s
+          if (timeSinceLastEvent < 5000) {
+            startTimestamp5sBefore = lastEndTime;
+            startTime5sBefore = currentTime - timeSinceLastEvent;
+            addDebugLog(`🔗 Événement proche détecté : ${Math.round(timeSinceLastEvent/1000)}s depuis le dernier`, 'info');
+          }
+        }
+        
+        // Filtrer les données IMU de 5s avant à 5s après le clic
+        const periodImuData = imuHistory.filter(d => 
+          d.timestamp >= startTimestamp5sBefore && d.timestamp <= finalTimestamp
+        );
+        
+        const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
+        const duration = finalTime - startTime5sBefore;
+        addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
+        
+        setRecordings(prev => [...prev, {
+          label: labelName,
+          startTime: formatTime(Math.max(0, startTime5sBefore)),
+          endTime: formatTime(finalTime),
+          duration: formatTime(duration),
+          absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, startTime5sBefore)),
+          absoluteEndTime: new Date(sessionStartDate.getTime() + finalTime),
+          imuData: periodImuData
+        }]);
+        
+        // Retirer de la liste des pending
+        setPendingLabels(prev => {
+          const updated = {...prev};
+          delete updated[pendingKey];
+          return updated;
+        });
+      }, 5000); // Attendre 5 secondes
       
-      setRecordings(newRecordings);
       return;
     }
     
@@ -506,6 +539,7 @@ function App() {
     
     setRecordings(finalRecordings);
     setActiveLabels({});
+    setPendingLabels({}); // NOUVEAU: Nettoyer les labels en attente
     setIsRunning(false);
     setSessionEnded(true);
     setCurrentSessionData(newSession);
@@ -973,7 +1007,7 @@ function App() {
               onClick={() => {
                 if (!isRunning) {
                   setMode('instantane');
-                  addDebugLog('⚡ Mode Instantané activé (10s avant)', 'info');
+                  addDebugLog('⚡ Mode Instantané activé (5s avant + 5s après)', 'info');
                 }
               }}
               disabled={isRunning}
@@ -988,7 +1022,7 @@ function App() {
             >
               <div className="flex flex-col items-center gap-1">
                 <span>⚡ Instantané</span>
-                <span className="text-xs opacity-80">10s avant</span>
+                <span className="text-xs opacity-80">5s avant + 5s après</span>
               </div>
             </button>
             <button
@@ -1017,7 +1051,7 @@ function App() {
           {!isRunning && (
             <p className="text-slate-400 text-xs mt-3 text-center">
               {mode === 'instantane' 
-                ? '⚡ Appuyez 1× après l\'événement (capture 10s avant)' 
+                ? '⚡ Cliquez pendant l\'événement (capture 5s avant + 5s après)' 
                 : '📌 Appuyez 1× au début, 1× à la fin de l\'événement'}
             </p>
           )}
@@ -1192,42 +1226,51 @@ function App() {
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
           <div className="grid grid-cols-1 gap-3">
-            {labels.map(label => (
-              <button
-                key={label.id}
-                onClick={() => toggleLabel(label.id)}
-                disabled={!isRunning}
-                className={`
-                  ${clickedLabel === label.id 
-                    ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
-                    : mode === 'borne' && activeLabels[label.id] 
-                      ? `${label.color} ring-2 ring-white shadow-xl` 
-                      : `${label.color}`
-                  }
-                  ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                  text-white px-4 py-4 rounded-lg text-base font-semibold transition-all
-                `}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{label.name}</span>
-                  {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && (
-                    <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                  )}
-                  {mode === 'instantane' && isRunning && clickedLabel !== label.id && (
-                    <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                  )}
-                  {clickedLabel === label.id && (
-                    <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                  )}
-                </div>
-              </button>
-            ))}
+            {labels.map(label => {
+              const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
+              
+              return (
+                <button
+                  key={label.id}
+                  onClick={() => toggleLabel(label.id)}
+                  disabled={!isRunning}
+                  className={`
+                    ${clickedLabel === label.id 
+                      ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                      : isPending
+                        ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
+                        : mode === 'borne' && activeLabels[label.id] 
+                          ? `${label.color} ring-2 ring-white shadow-xl` 
+                          : `${label.color}`
+                    }
+                    ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                    text-white px-4 py-4 rounded-lg text-base font-semibold transition-all
+                  `}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{label.name}</span>
+                    {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
+                      <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                    )}
+                    {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                      <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                    )}
+                    {clickedLabel === label.id && (
+                      <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
+                    )}
+                    {isPending && (
+                      <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
           {isRunning && (
             <p className="text-slate-400 text-xs mt-3 text-center">
               {mode === 'borne' 
                 ? '🎯 Cliquez pour démarrer/arrêter chaque phase' 
-                : '⚡ Cliquez après chaque événement (10s avant)'}
+                : '⚡ Cliquez pendant l\'événement (5s avant + 5s après)'}
             </p>
           )}
         </div>
