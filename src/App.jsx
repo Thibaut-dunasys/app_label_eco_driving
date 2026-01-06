@@ -211,6 +211,9 @@ function App() {
         timestamp: Date.now(),
         ax: Number(currentImuData.ax) || 0,
         ay: Number(currentImuData.ay) || 0,
+        az: Number(currentImuData.az) || 0,
+        gx: Number(currentImuData.gx) || 0,
+        gy: Number(currentImuData.gy) || 0,
         gz: Number(currentImuData.gz) || 0
       };
       
@@ -218,7 +221,7 @@ function App() {
         const updated = [...prev, dataPoint];
         
         if (updated.length % 10 === 0) {
-          const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+          const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
           addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null)`, 'info');
         }
         
@@ -356,7 +359,7 @@ function App() {
         d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
       
-      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
       const duration = currentTime - startTime;
       addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
       
@@ -398,7 +401,7 @@ function App() {
         d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
       );
       
-      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+      const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
       addDebugLog(`✅ ${labelName}: ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
       
       newRecordings.push({
@@ -445,7 +448,7 @@ function App() {
     const endDate = new Date();
     const currentTimestamp = Date.now();
     
-    const nonZero = imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length;
+    const nonZero = imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
     addDebugLog(`🏁 Fin: ${imuHistory.length} mesures (${nonZero} non-null)`, 'success');
     
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
@@ -515,7 +518,7 @@ function App() {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
     
-    const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+    const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
     
     const csvContent = [
       headers.join(','),
@@ -536,11 +539,20 @@ function App() {
         const ayList = row.imuData && row.imuData.length > 0 
           ? '[' + row.imuData.map(d => d.ay).join(',') + ']'
           : '[]';
+        const azList = row.imuData && row.imuData.length > 0 
+          ? '[' + row.imuData.map(d => d.az).join(',') + ']'
+          : '[]';
+        const gxList = row.imuData && row.imuData.length > 0 
+          ? '[' + row.imuData.map(d => d.gx).join(',') + ']'
+          : '[]';
+        const gyList = row.imuData && row.imuData.length > 0 
+          ? '[' + row.imuData.map(d => d.gy).join(',') + ']'
+          : '[]';
         const gzList = row.imuData && row.imuData.length > 0 
           ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
           : '[]';
         
-        return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${gzList}"`;
+        return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -572,7 +584,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Gyroscope Z'];
+      const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -593,11 +605,20 @@ function App() {
           const ayList = row.imuData && row.imuData.length > 0 
             ? '[' + row.imuData.map(d => d.ay).join(',') + ']'
             : '[]';
+          const azList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.az).join(',') + ']'
+            : '[]';
+          const gxList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.gx).join(',') + ']'
+            : '[]';
+          const gyList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.gy).join(',') + ']'
+            : '[]';
           const gzList = row.imuData && row.imuData.length > 0 
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${gzList}"`;
+          return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -865,11 +886,14 @@ function App() {
               <div className="space-y-1 text-xs text-slate-300 font-mono">
                 <div>Mesures totales: <span className="text-cyan-400">{imuHistory.length}</span></div>
                 <div>Non-nulles: <span className="text-green-400">
-                  {imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.gz !== 0).length}
+                  {imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length}
                 </span></div>
                 <div>Events: <span className="text-purple-400">{recordings.length}</span></div>
-                <div>IMU actuel: <span className="text-amber-400">
-                  ax:{imuData.ax} ay:{imuData.ay} gz:{imuData.gz}
+                <div className="text-xs break-all">IMU: <span className="text-amber-400">
+                  ax:{imuData.ax} ay:{imuData.ay} az:{imuData.az}
+                </span></div>
+                <div className="text-xs break-all">Gyro: <span className="text-purple-400">
+                  gx:{imuData.gx} gy:{imuData.gy} gz:{imuData.gz}
                 </span></div>
               </div>
             </div>
@@ -1054,7 +1078,7 @@ function App() {
               {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 mb-2">
             <div className="bg-slate-700 rounded p-3 border border-slate-600">
               <p className="text-slate-400 text-xs font-mono mb-1">Acc X</p>
               <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
@@ -1065,6 +1089,26 @@ function App() {
               <p className="text-slate-400 text-xs font-mono mb-1">Acc Y</p>
               <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
                 {imuPermission ? imuData.ay : '--'}
+              </p>
+            </div>
+            <div className="bg-slate-700 rounded p-3 border border-slate-600">
+              <p className="text-slate-400 text-xs font-mono mb-1">Acc Z</p>
+              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
+                {imuPermission ? imuData.az : '--'}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-slate-700 rounded p-3 border border-slate-600">
+              <p className="text-slate-400 text-xs font-mono mb-1">Gyro X</p>
+              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
+                {imuPermission ? imuData.gx : '--'}
+              </p>
+            </div>
+            <div className="bg-slate-700 rounded p-3 border border-slate-600">
+              <p className="text-slate-400 text-xs font-mono mb-1">Gyro Y</p>
+              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
+                {imuPermission ? imuData.gy : '--'}
               </p>
             </div>
             <div className="bg-slate-700 rounded p-3 border border-slate-600">
