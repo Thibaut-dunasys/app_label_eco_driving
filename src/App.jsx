@@ -29,6 +29,9 @@ function App() {
   // NOUVEAU: Mode de labelisation
   const [mode, setMode] = useState('instantane'); // 'borne' ou 'instantane' - INSTANTANÉ PAR DÉFAUT
   
+  // NOUVEAU: Feedback visuel pour les clics sur labels
+  const [clickedLabel, setClickedLabel] = useState(null);
+  
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
 
@@ -256,6 +259,17 @@ function App() {
     });
   };
 
+  const formatDateTimeForFilename = (date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}`;
+  };
+
   const startSession = () => {
     const now = new Date();
     addDebugLog('🚀 Démarrage session', 'success');
@@ -281,6 +295,10 @@ function App() {
 
   const toggleLabel = (labelId) => {
     if (!isRunning) return;
+
+    // NOUVEAU: Feedback visuel immédiat
+    setClickedLabel(labelId);
+    setTimeout(() => setClickedLabel(null), 500); // Retirer après 500ms
 
     const currentTime = elapsedTime;
     const currentTimestamp = Date.now();
@@ -533,7 +551,7 @@ function App() {
     const url = URL.createObjectURL(blob);
     
     const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
-    const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+    const filename = `labelisation${carNamePart}_${formatDateTimeForFilename(session.startDate)}.csv`;
     
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
@@ -586,7 +604,7 @@ function App() {
       const base64CSV = btoa(unescape(encodeURIComponent(csvContent)));
       
       const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
-      const filename = `labelisation${carNamePart}_${new Date(session.startDate).toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+      const filename = `labelisation${carNamePart}_${formatDateTimeForFilename(session.startDate)}.csv`;
 
       const params = new URLSearchParams();
       params.append('file', base64CSV);
@@ -1136,9 +1154,11 @@ function App() {
                 onClick={() => toggleLabel(label.id)}
                 disabled={!isRunning}
                 className={`
-                  ${mode === 'borne' && activeLabels[label.id] 
-                    ? `${label.color} ring-2 ring-white shadow-xl` 
-                    : `${label.color}`
+                  ${clickedLabel === label.id 
+                    ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                    : mode === 'borne' && activeLabels[label.id] 
+                      ? `${label.color} ring-2 ring-white shadow-xl` 
+                      : `${label.color}`
                   }
                   ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
                   text-white px-4 py-4 rounded-lg text-base font-semibold transition-all
@@ -1146,11 +1166,14 @@ function App() {
               >
                 <div className="flex items-center justify-between">
                   <span>{label.name}</span>
-                  {mode === 'borne' && activeLabels[label.id] && (
+                  {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && (
                     <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
                   )}
-                  {mode === 'instantane' && isRunning && (
+                  {mode === 'instantane' && isRunning && clickedLabel !== label.id && (
                     <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                  )}
+                  {clickedLabel === label.id && (
+                    <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
                   )}
                 </div>
               </button>
