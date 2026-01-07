@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, MicOff } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -34,7 +34,6 @@ function App() {
   const [debugLogs, setDebugLogs] = useState([]);
 
   // NOUVEAU : États pour la reconnaissance vocale
-  const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
   const recognitionRef = useRef(null);
@@ -99,7 +98,7 @@ function App() {
         addDebugLog(`⚠️ Erreur vocale: ${event.error}`, 'error');
         if (event.error === 'no-speech') {
           // Pas de parole détectée, on relance automatiquement
-          if (isVoiceActive && isRunning) {
+          if (mode === 'vocal' && isRunning) {
             setTimeout(() => {
               try {
                 recognition.start();
@@ -112,8 +111,8 @@ function App() {
       };
 
       recognition.onend = () => {
-        // Relancer automatiquement si encore actif
-        if (isVoiceActive && isRunning) {
+        // Relancer automatiquement si en mode vocal et session en cours
+        if (mode === 'vocal' && isRunning) {
           try {
             recognition.start();
             addDebugLog('🔄 Reconnaissance vocale relancée', 'info');
@@ -140,43 +139,33 @@ function App() {
     };
   }, []);
 
-  // NOUVEAU : Gérer l'activation/désactivation de la reconnaissance vocale
-  const toggleVoiceRecognition = () => {
-    if (!voiceSupported || !isRunning) return;
+  // Gérer l'activation/désactivation automatique de la reconnaissance vocale selon le mode
+  useEffect(() => {
+    if (!voiceSupported || !recognitionRef.current) return;
 
-    if (isVoiceActive) {
-      // Désactiver
-      try {
-        recognitionRef.current.stop();
-        setIsVoiceActive(false);
-        addDebugLog('🔇 Reconnaissance vocale désactivée', 'info');
-      } catch (e) {
-        addDebugLog('⚠️ Erreur arrêt vocal: ' + e.message, 'error');
-      }
-    } else {
-      // Activer
+    if (mode === 'vocal' && isRunning) {
+      // Activer la reconnaissance vocale
       try {
         recognitionRef.current.start();
-        setIsVoiceActive(true);
-        addDebugLog('🎤 Reconnaissance vocale activée', 'success');
+        addDebugLog('🎤 Mode vocal activé - Écoute en cours', 'success');
       } catch (e) {
-        addDebugLog('⚠️ Erreur démarrage vocal: ' + e.message, 'error');
+        if (e.name !== 'InvalidStateError') {
+          addDebugLog('⚠️ Erreur démarrage vocal: ' + e.message, 'error');
+        }
       }
-    }
-  };
-
-  // NOUVEAU : Arrêter la reconnaissance vocale quand la session se termine
-  useEffect(() => {
-    if (!isRunning && isVoiceActive && recognitionRef.current) {
+    } else {
+      // Désactiver la reconnaissance vocale
       try {
         recognitionRef.current.stop();
-        setIsVoiceActive(false);
-        addDebugLog('🔇 Reconnaissance vocale arrêtée (fin de session)', 'info');
+        if (mode === 'vocal' && !isRunning) {
+          addDebugLog('🔇 Mode vocal arrêté (fin de session)', 'info');
+        }
       } catch (e) {
-        // Ignore
+        // Ignore errors
       }
     }
-  }, [isRunning]);
+  }, [mode, isRunning, voiceSupported]);
+
 
   useEffect(() => {
     loadSessions();
@@ -409,8 +398,8 @@ function App() {
     setUploadStatus('idle');
     setSensorWarning('');
     
-    if (mode === 'instantane') {
-      addDebugLog('📝 Initialisation automatique (mode instantané)', 'info');
+    if (mode === 'instantane' || mode === 'vocal') {
+      addDebugLog(`📝 Initialisation automatique (mode ${mode})`, 'info');
     }
   };
 
@@ -425,7 +414,7 @@ function App() {
     const newRecordings = [...recordings];
     const labelName = labels.find(l => l.id === labelId).name;
     
-    if (mode === 'instantane') {
+    if (mode === 'instantane' || mode === 'vocal') {
       if (recordings.length === 0 && Object.keys(pendingLabels).length === 0) {
         let initStartTime = 0;
         let initEndTime = currentTime - 5000;
@@ -438,7 +427,7 @@ function App() {
           d.timestamp <= (currentTimestamp - 5000) || d.timestamp <= sessionStartDate.getTime()
         );
         
-        addDebugLog(`📝 Init (mode instantané): ${initImuData.length} mesures`, 'info');
+        addDebugLog(`📝 Init (mode ${mode}): ${initImuData.length} mesures`, 'info');
         
         newRecordings.push({
           label: 'Initialisation',
@@ -1022,12 +1011,13 @@ function App() {
                   {imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length}
                 </span></div>
                 <div>Events: <span className="text-purple-400">{recordings.length}</span></div>
-                {voiceSupported && (
-                  <div>Vocal: <span className={isVoiceActive ? 'text-green-400' : 'text-red-400'}>
-                    {isVoiceActive ? '✓ Actif' : '✗ Inactif'}
+                <div>Mode: <span className="text-amber-400">{mode}</span></div>
+                {mode === 'vocal' && voiceSupported && (
+                  <div>Vocal: <span className={mode === 'vocal' && isRunning ? 'text-green-400' : 'text-red-400'}>
+                    {mode === 'vocal' && isRunning ? '✓ Actif' : '✗ Inactif'}
                   </span></div>
                 )}
-                {lastTranscript && (
+                {lastTranscript && mode === 'vocal' && (
                   <div className="pt-2 border-t border-slate-700">
                     <div className="text-amber-400">Dernier: "{lastTranscript}"</div>
                   </div>
@@ -1102,52 +1092,10 @@ function App() {
           </div>
         </div>
 
-        {/* NOUVEAU : Bouton reconnaissance vocale */}
-        {voiceSupported && (
-          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Mic size={20} className={isVoiceActive ? 'text-green-400' : 'text-slate-400'} />
-                <div>
-                  <h3 className="text-white font-semibold text-sm">Reconnaissance vocale</h3>
-                  <p className="text-slate-400 text-xs mt-1">
-                    {isVoiceActive ? '🎤 Écoute en cours...' : 'Activez pour dicter les labels'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={toggleVoiceRecognition}
-                disabled={!isRunning}
-                className={`
-                  ${isVoiceActive 
-                    ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-slate-600 hover:bg-slate-700'
-                  }
-                  ${!isRunning ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}
-                  text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 transition-all
-                `}
-              >
-                {isVoiceActive ? <Mic size={20} /> : <MicOff size={20} />}
-                {isVoiceActive ? 'Actif' : 'Inactif'}
-              </button>
-            </div>
-            {lastTranscript && isVoiceActive && (
-              <div className="mt-3 bg-slate-700 rounded-lg p-3 border border-slate-600">
-                <p className="text-xs text-slate-400 mb-1">Dernière commande :</p>
-                <p className="text-sm text-amber-300 font-mono">"{lastTranscript}"</p>
-              </div>
-            )}
-            {!isRunning && (
-              <p className="text-amber-400 text-xs mt-3 text-center">
-                ⚠️ Démarrez une session pour activer la reconnaissance vocale
-              </p>
-            )}
-          </div>
-        )}
 
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <h3 className="text-white font-semibold mb-3 text-sm">Mode de labelisation</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => {
                 if (!isRunning) {
@@ -1192,15 +1140,59 @@ function App() {
                 <span className="text-xs opacity-80">Début → Fin</span>
               </div>
             </button>
+            <button
+              onClick={() => {
+                if (!isRunning) {
+                  if (voiceSupported) {
+                    setMode('vocal');
+                    addDebugLog('🎤 Mode Vocal activé', 'info');
+                  } else {
+                    alert('La reconnaissance vocale n\'est pas disponible sur ce navigateur.');
+                  }
+                }
+              }}
+              disabled={isRunning || !voiceSupported}
+              className={`
+                ${mode === 'vocal' 
+                  ? 'bg-green-600 border-green-400 ring-2 ring-green-400' 
+                  : 'bg-slate-700 border-slate-600'
+                }
+                ${isRunning || !voiceSupported ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700 active:scale-95'}
+                border-2 text-white px-3 py-3 rounded-lg font-semibold transition-all text-xs
+              `}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <Mic size={16} />
+                <span>Vocal</span>
+                <span className="text-[10px] opacity-80">Mains libres</span>
+              </div>
+            </button>
           </div>
           {!isRunning && (
             <p className="text-slate-400 text-xs mt-3 text-center">
               {mode === 'instantane' 
                 ? '⚡ Cliquez pendant l\'événement (capture 5s avant + 5s après)' 
-                : '📌 Appuyez 1× au début, 1× à la fin de l\'événement'}
+                : mode === 'vocal'
+                  ? '🎤 Dictez les labels à voix haute (capture 5s avant + 5s après)'
+                  : '📌 Appuyez 1× au début, 1× à la fin de l\'événement'}
             </p>
           )}
-          {isRunning && (
+          {isRunning && mode === 'vocal' && (
+            <div className="mt-3 bg-green-900 border border-green-600 rounded-lg p-3">
+              <div className="flex items-center gap-2 justify-center">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-green-200 text-xs font-semibold">
+                  🎤 Écoute en cours... Dictez les labels
+                </span>
+              </div>
+              {lastTranscript && (
+                <p className="text-center text-xs text-green-300 mt-2 font-mono">
+                  Dernier: "{lastTranscript}"
+                </p>
+              )}
+            </div>
+          )}
+          {isRunning && mode !== 'vocal' && (
             <p className="text-amber-400 text-xs mt-3 text-center">
               🔒 Mode verrouillé pendant l'enregistrement
             </p>
@@ -1393,8 +1385,8 @@ function App() {
               return (
                 <button
                   key={label.id}
-                  onClick={() => toggleLabel(label.id)}
-                  disabled={!isRunning}
+                  onClick={() => mode !== 'vocal' && toggleLabel(label.id)}
+                  disabled={!isRunning || mode === 'vocal'}
                   className={`
                     ${clickedLabel === label.id 
                       ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
@@ -1404,7 +1396,7 @@ function App() {
                           ? `${label.color} ring-2 ring-white shadow-xl` 
                           : `${label.color}`
                     }
-                    ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                    ${!isRunning || mode === 'vocal' ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
                     text-white px-4 py-4 rounded-lg text-base font-semibold transition-all
                   `}
                 >
@@ -1413,7 +1405,7 @@ function App() {
                     {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
                       <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
                     )}
-                    {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                    {(mode === 'instantane' || mode === 'vocal') && isRunning && clickedLabel !== label.id && !isPending && (
                       <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
                     )}
                     {clickedLabel === label.id && (
@@ -1431,10 +1423,12 @@ function App() {
             <p className="text-slate-400 text-xs mt-3 text-center">
               {mode === 'borne' 
                 ? '🎯 Cliquez pour démarrer/arrêter chaque phase' 
-                : '⚡ Cliquez pendant l\'événement (5s avant + 5s après)'}
+                : mode === 'vocal'
+                  ? '🎤 Les labels s\'allument quand vous les dictez'
+                  : '⚡ Cliquez pendant l\'événement (5s avant + 5s après)'}
             </p>
           )}
-          {isRunning && voiceSupported && isVoiceActive && (
+          {isRunning && voiceSupported && mode === 'vocal' && (
             <p className="text-green-400 text-xs mt-2 text-center">
               🎤 Commandes vocales : "virage droite/gauche", "voie droite/gauche", "freinage", "accélération"
             </p>
