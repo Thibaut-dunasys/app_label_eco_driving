@@ -62,6 +62,29 @@ function App() {
     setDebugLogs(prev => [...prev.slice(-20), { time: timestamp, message, type }]);
   };
 
+  // Fonction pour jouer un beep de confirmation
+  const playBeep = () => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.frequency.value = 800; // Fréquence en Hz (son agréable)
+      oscillator.type = 'sine'; // Type de son (sine = doux)
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume à 30%
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2); // Fade out
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.2); // Durée 200ms
+    } catch (error) {
+      console.error('Erreur beep:', error);
+    }
+  };
+
   const labels = [
     { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-slate-600', keywords: ['virage droit', 'virage à droite', 'virage droite', 'tourne droite'] },
     { id: 'left-turn', name: 'Virage agressif à gauche', color: 'bg-gray-500', keywords: ['virage gauche', 'virage à gauche', 'tourne gauche'] },
@@ -108,6 +131,7 @@ function App() {
           // Utiliser la ref pour appeler toggleLabel
           if (toggleLabelRef.current) {
             toggleLabelRef.current(matchedLabel.id);
+            playBeep(); // Jouer un son de confirmation
             addDebugLog(`🔥 toggleLabel appelé pour ${matchedLabel.name}`, 'success');
           } else {
             addDebugLog(`❌ toggleLabelRef.current est null!`, 'error');
