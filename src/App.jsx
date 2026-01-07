@@ -41,10 +41,20 @@ function App() {
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec';
 
   const imuDataRef = useRef(imuData);
+  const modeRef = useRef(mode);
+  const isRunningRef = useRef(isRunning);
   
   useEffect(() => {
     imuDataRef.current = imuData;
   }, [imuData]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+  }, [isRunning]);
 
   const addDebugLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -81,6 +91,12 @@ function App() {
         setLastTranscript(transcript);
         addDebugLog(`🎤 Reconnu: "${transcript}"`, 'info');
         
+        // Vérifier qu'on est en mode vocal et que la session est en cours
+        if (modeRef.current !== 'vocal' || !isRunningRef.current) {
+          addDebugLog(`⚠️ Ignoré (mode: ${modeRef.current}, running: ${isRunningRef.current})`, 'warning');
+          return;
+        }
+        
         // Chercher le label correspondant
         const matchedLabel = labels.find(label => 
           label.keywords.some(keyword => transcript.includes(keyword))
@@ -98,7 +114,7 @@ function App() {
         addDebugLog(`⚠️ Erreur vocale: ${event.error}`, 'error');
         if (event.error === 'no-speech') {
           // Pas de parole détectée, on relance automatiquement
-          if (mode === 'vocal' && isRunning) {
+          if (modeRef.current === 'vocal' && isRunningRef.current) {
             setTimeout(() => {
               try {
                 recognition.start();
@@ -112,7 +128,7 @@ function App() {
 
       recognition.onend = () => {
         // Relancer automatiquement si en mode vocal et session en cours
-        if (mode === 'vocal' && isRunning) {
+        if (modeRef.current === 'vocal' && isRunningRef.current) {
           try {
             recognition.start();
             addDebugLog('🔄 Reconnaissance vocale relancée', 'info');
