@@ -43,6 +43,7 @@ function App() {
   const imuDataRef = useRef(imuData);
   const modeRef = useRef(mode);
   const isRunningRef = useRef(isRunning);
+  const toggleLabelRef = useRef(null);
   
   useEffect(() => {
     imuDataRef.current = imuData;
@@ -104,7 +105,13 @@ function App() {
         
         if (matchedLabel) {
           addDebugLog(`✅ Commande trouvée: ${matchedLabel.name}`, 'success');
-          toggleLabel(matchedLabel.id);
+          // Utiliser la ref pour appeler toggleLabel
+          if (toggleLabelRef.current) {
+            toggleLabelRef.current(matchedLabel.id);
+            addDebugLog(`🔥 toggleLabel appelé pour ${matchedLabel.name}`, 'success');
+          } else {
+            addDebugLog(`❌ toggleLabelRef.current est null!`, 'error');
+          }
         } else {
           addDebugLog(`❌ Commande non reconnue: "${transcript}"`, 'warning');
         }
@@ -423,7 +430,7 @@ function App() {
     if (!isRunning) return;
 
     setClickedLabel(labelId);
-    setTimeout(() => setClickedLabel(null), 500);
+    setTimeout(() => setClickedLabel(null), mode === 'vocal' ? 2000 : 500);
 
     const currentTime = elapsedTime;
     const currentTimestamp = Date.now();
@@ -582,6 +589,11 @@ function App() {
       setRecordings(newRecordings);
     }
   };
+
+  // Mettre à jour la ref pour la reconnaissance vocale
+  useEffect(() => {
+    toggleLabelRef.current = toggleLabel;
+  }, [toggleLabel]);
 
   const endSession = () => {
     const finalRecordings = [...recordings];
@@ -1392,8 +1404,9 @@ function App() {
           </div>
         </div>
 
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-          <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
+        {mode !== 'vocal' && (
+          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
+            <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
           <div className="grid grid-cols-1 gap-3">
             {labels.map(label => {
               const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
@@ -1450,6 +1463,61 @@ function App() {
             </p>
           )}
         </div>
+        )}
+
+        {mode === 'vocal' && (
+          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-6 mb-4">
+            <h2 className="text-lg font-semibold text-white mb-4 text-center">🎤 Mode Vocal</h2>
+            
+            {isRunning ? (
+              <div className="space-y-4">
+                <div className="bg-green-900 border-2 border-green-500 rounded-lg p-4">
+                  <div className="flex items-center gap-3 justify-center">
+                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-green-200 font-semibold text-lg">Écoute en cours...</span>
+                  </div>
+                  <p className="text-center text-green-300 text-sm mt-2">
+                    Dictez les labels à voix haute
+                  </p>
+                </div>
+
+                {lastTranscript && (
+                  <div className="bg-blue-900 border border-blue-500 rounded-lg p-4">
+                    <p className="text-blue-300 text-xs mb-2">Dernière phrase détectée :</p>
+                    <p className="text-white font-mono text-base text-center">"{lastTranscript}"</p>
+                  </div>
+                )}
+
+                {clickedLabel && (
+                  <div className="bg-green-600 border-2 border-green-400 rounded-lg p-4 animate-pulse">
+                    <p className="text-white font-bold text-center text-lg">
+                      ✅ {labels.find(l => l.id === clickedLabel)?.name}
+                    </p>
+                    <p className="text-green-200 text-sm text-center mt-1">
+                      Label reconnu et enregistré !
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+                  <p className="text-slate-300 text-sm font-semibold mb-3 text-center">Commandes disponibles :</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {labels.map(label => (
+                      <div key={label.id} className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
+                        {label.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-slate-400 mb-4">Cliquez sur "Démarrer" pour activer la reconnaissance vocale</p>
+                <p className="text-slate-500 text-sm">Le micro s'activera automatiquement</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {isRunning && recordings.length > 0 && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
