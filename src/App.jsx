@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, MicOff } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -26,17 +26,18 @@ function App() {
   const [isEditingCarName, setIsEditingCarName] = useState(false);
   const [tempCarName, setTempCarName] = useState('');
   
-  // NOUVEAU: Mode de labelisation
-  const [mode, setMode] = useState('instantane'); // 'borne' ou 'instantane' - INSTANTANÉ PAR DÉFAUT
-  
-  // NOUVEAU: Feedback visuel pour les clics sur labels
+  const [mode, setMode] = useState('instantane');
   const [clickedLabel, setClickedLabel] = useState(null);
-  
-  // NOUVEAU: Labels en attente (mode instantané - attente 5s après le clic)
   const [pendingLabels, setPendingLabels] = useState({});
   
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
+
+  // NOUVEAU : États pour la reconnaissance vocale
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [lastTranscript, setLastTranscript] = useState('');
+  const recognitionRef = useRef(null);
 
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec';
 
@@ -52,13 +53,130 @@ function App() {
   };
 
   const labels = [
-    { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-slate-600' },
-    { id: 'left-turn', name: 'Virage agressif à gauche', color: 'bg-gray-500' },
-    { id: 'right-lane', name: 'Changement de voie agressif à droite', color: 'bg-gray-600' },
-    { id: 'left-lane', name: 'Changement de voie agressif à gauche', color: 'bg-zinc-500' },
-    { id: 'braking', name: 'Freinage agressif', color: 'bg-zinc-600' },
-    { id: 'acceleration', name: 'Accélération agressive', color: 'bg-neutral-600' }
+    { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-slate-600', keywords: ['virage droit', 'virage à droite', 'virage droite', 'tourne droite'] },
+    { id: 'left-turn', name: 'Virage agressif à gauche', color: 'bg-gray-500', keywords: ['virage gauche', 'virage à gauche', 'tourne gauche'] },
+    { id: 'right-lane', name: 'Changement de voie agressif à droite', color: 'bg-gray-600', keywords: ['voie droite', 'voie à droite', 'changement droite', 'changement de voie droite'] },
+    { id: 'left-lane', name: 'Changement de voie agressif à gauche', color: 'bg-zinc-500', keywords: ['voie gauche', 'voie à gauche', 'changement gauche', 'changement de voie gauche'] },
+    { id: 'braking', name: 'Freinage agressif', color: 'bg-zinc-600', keywords: ['freinage', 'frein', 'freine', 'coup de frein'] },
+    { id: 'acceleration', name: 'Accélération agressive', color: 'bg-neutral-600', keywords: ['accélération', 'accélère', 'accélérer', 'accélération agressive'] }
   ];
+
+  // NOUVEAU : Initialiser la reconnaissance vocale
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+      addDebugLog('🎤 Reconnaissance vocale disponible', 'success');
+      
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'fr-FR';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event) => {
+        const last = event.results.length - 1;
+        const transcript = event.results[last][0].transcript.toLowerCase().trim();
+        
+        setLastTranscript(transcript);
+        addDebugLog(`🎤 Reconnu: "${transcript}"`, 'info');
+        
+        // Chercher le label correspondant
+        const matchedLabel = labels.find(label => 
+          label.keywords.some(keyword => transcript.includes(keyword))
+        );
+        
+        if (matchedLabel) {
+          addDebugLog(`✅ Commande trouvée: ${matchedLabel.name}`, 'success');
+          toggleLabel(matchedLabel.id);
+        } else {
+          addDebugLog(`❌ Commande non reconnue: "${transcript}"`, 'warning');
+        }
+      };
+
+      recognition.onerror = (event) => {
+        addDebugLog(`⚠️ Erreur vocale: ${event.error}`, 'error');
+        if (event.error === 'no-speech') {
+          // Pas de parole détectée, on relance automatiquement
+          if (isVoiceActive && isRunning) {
+            setTimeout(() => {
+              try {
+                recognition.start();
+              } catch (e) {
+                // Ignore si déjà démarré
+              }
+            }, 100);
+          }
+        }
+      };
+
+      recognition.onend = () => {
+        // Relancer automatiquement si encore actif
+        if (isVoiceActive && isRunning) {
+          try {
+            recognition.start();
+            addDebugLog('🔄 Reconnaissance vocale relancée', 'info');
+          } catch (e) {
+            addDebugLog('⚠️ Impossible de relancer: ' + e.message, 'warning');
+          }
+        }
+      };
+
+      recognitionRef.current = recognition;
+    } else {
+      setVoiceSupported(false);
+      addDebugLog('❌ Reconnaissance vocale non disponible', 'error');
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore errors on cleanup
+        }
+      }
+    };
+  }, []);
+
+  // NOUVEAU : Gérer l'activation/désactivation de la reconnaissance vocale
+  const toggleVoiceRecognition = () => {
+    if (!voiceSupported || !isRunning) return;
+
+    if (isVoiceActive) {
+      // Désactiver
+      try {
+        recognitionRef.current.stop();
+        setIsVoiceActive(false);
+        addDebugLog('🔇 Reconnaissance vocale désactivée', 'info');
+      } catch (e) {
+        addDebugLog('⚠️ Erreur arrêt vocal: ' + e.message, 'error');
+      }
+    } else {
+      // Activer
+      try {
+        recognitionRef.current.start();
+        setIsVoiceActive(true);
+        addDebugLog('🎤 Reconnaissance vocale activée', 'success');
+      } catch (e) {
+        addDebugLog('⚠️ Erreur démarrage vocal: ' + e.message, 'error');
+      }
+    }
+  };
+
+  // NOUVEAU : Arrêter la reconnaissance vocale quand la session se termine
+  useEffect(() => {
+    if (!isRunning && isVoiceActive && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+        setIsVoiceActive(false);
+        addDebugLog('🔇 Reconnaissance vocale arrêtée (fin de session)', 'info');
+      } catch (e) {
+        // Ignore
+      }
+    }
+  }, [isRunning]);
 
   useEffect(() => {
     loadSessions();
@@ -291,34 +409,27 @@ function App() {
     setUploadStatus('idle');
     setSensorWarning('');
     
-    // NOUVEAU: En mode instantané, créer immédiatement une phase d'initialisation
     if (mode === 'instantane') {
       addDebugLog('📝 Initialisation automatique (mode instantané)', 'info');
-      // L'initialisation sera créée lors du premier label
-      // On marque juste qu'on est en mode instantané dans les logs
     }
   };
 
   const toggleLabel = (labelId) => {
     if (!isRunning) return;
 
-    // NOUVEAU: Feedback visuel immédiat
     setClickedLabel(labelId);
-    setTimeout(() => setClickedLabel(null), 500); // Retirer après 500ms
+    setTimeout(() => setClickedLabel(null), 500);
 
     const currentTime = elapsedTime;
     const currentTimestamp = Date.now();
     const newRecordings = [...recordings];
     const labelName = labels.find(l => l.id === labelId).name;
     
-    // MODE INSTANTANÉ : Enregistrer 5s avant + 5s après le clic
     if (mode === 'instantane') {
-      // NOUVEAU: Créer une phase d'initialisation si c'est le premier label
       if (recordings.length === 0 && Object.keys(pendingLabels).length === 0) {
         let initStartTime = 0;
-        let initEndTime = currentTime - 5000; // Jusqu'à 5s avant le premier label
+        let initEndTime = currentTime - 5000;
         
-        // Si on est à moins de 5s du début, l'init va jusqu'à 0
         if (initEndTime < 0) {
           initEndTime = 0;
         }
@@ -342,7 +453,6 @@ function App() {
         setRecordings(newRecordings);
       }
       
-      // Marquer le label comme "en attente" (attendre 5s après le clic)
       const pendingKey = `${labelId}_${Date.now()}`;
       setPendingLabels(prev => ({
         ...prev,
@@ -356,23 +466,19 @@ function App() {
       
       addDebugLog(`⏳ ${labelName} en attente (5s après...)`, 'info');
       
-      // Attendre 5 secondes puis créer l'enregistrement
       setTimeout(() => {
         const finalTime = Date.now() - startTime;
         const finalTimestamp = Date.now();
         
-        // Calculer 5s avant et 5s après le clic
         let startTime5sBefore = currentTime - 5000;
         let startTimestamp5sBefore = currentTimestamp - 5000;
         
-        // Vérifier si un événement récent existe
         const currentRecordings = [...recordings];
         if (currentRecordings.length > 0) {
           const lastRecording = currentRecordings[currentRecordings.length - 1];
           const lastEndTime = lastRecording.absoluteEndTime.getTime();
           const timeSinceLastEvent = currentTimestamp - lastEndTime;
           
-          // Si le dernier event s'est terminé il y a moins de 5s
           if (timeSinceLastEvent < 5000) {
             startTimestamp5sBefore = lastEndTime;
             startTime5sBefore = currentTime - timeSinceLastEvent;
@@ -380,7 +486,6 @@ function App() {
           }
         }
         
-        // Filtrer les données IMU de 5s avant à 5s après le clic
         const periodImuData = imuHistory.filter(d => 
           d.timestamp >= startTimestamp5sBefore && d.timestamp <= finalTimestamp
         );
@@ -399,18 +504,16 @@ function App() {
           imuData: periodImuData
         }]);
         
-        // Retirer de la liste des pending
         setPendingLabels(prev => {
           const updated = {...prev};
           delete updated[pendingKey];
           return updated;
         });
-      }, 5000); // Attendre 5 secondes
+      }, 5000);
       
       return;
     }
     
-    // MODE BORNÉ (comportement actuel)
     if (recordings.length === 0 && Object.keys(activeLabels).length === 0) {
       const initImuData = imuHistory.filter(d => d.timestamp <= currentTimestamp);
       addDebugLog(`📝 Init: ${initImuData.length} mesures`, 'info');
@@ -539,7 +642,7 @@ function App() {
     
     setRecordings(finalRecordings);
     setActiveLabels({});
-    setPendingLabels({}); // NOUVEAU: Nettoyer les labels en attente
+    setPendingLabels({});
     setIsRunning(false);
     setSessionEnded(true);
     setCurrentSessionData(newSession);
@@ -557,7 +660,6 @@ function App() {
     const csvContent = [
       headers.join(','),
       ...data.map(row => {
-        // Convertir la durée en secondes décimales
         const durationParts = row.duration.split(':');
         let durationSeconds = 0;
         if (durationParts.length === 2) {
@@ -566,7 +668,6 @@ function App() {
           durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
         }
         
-        // Créer des listes au format [val1,val2,val3]
         const axList = row.imuData && row.imuData.length > 0 
           ? '[' + row.imuData.map(d => d.ax).join(',') + ']'
           : '[]';
@@ -623,7 +724,6 @@ function App() {
       const csvContent = [
         headers.join(','),
         ...data.map(row => {
-          // Convertir la durée en secondes décimales
           const durationParts = row.duration.split(':');
           let durationSeconds = 0;
           if (durationParts.length === 2) {
@@ -632,7 +732,6 @@ function App() {
             durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
           }
           
-          // Créer des listes au format [val1,val2,val3]
           const axList = row.imuData && row.imuData.length > 0 
             ? '[' + row.imuData.map(d => d.ax).join(',') + ']'
             : '[]';
@@ -923,12 +1022,16 @@ function App() {
                   {imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length}
                 </span></div>
                 <div>Events: <span className="text-purple-400">{recordings.length}</span></div>
-                <div className="text-xs break-all">IMU: <span className="text-amber-400">
-                  ax:{imuData.ax} ay:{imuData.ay} az:{imuData.az}
-                </span></div>
-                <div className="text-xs break-all">Gyro: <span className="text-purple-400">
-                  gx:{imuData.gx} gy:{imuData.gy} gz:{imuData.gz}
-                </span></div>
+                {voiceSupported && (
+                  <div>Vocal: <span className={isVoiceActive ? 'text-green-400' : 'text-red-400'}>
+                    {isVoiceActive ? '✓ Actif' : '✗ Inactif'}
+                  </span></div>
+                )}
+                {lastTranscript && (
+                  <div className="pt-2 border-t border-slate-700">
+                    <div className="text-amber-400">Dernier: "{lastTranscript}"</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -999,7 +1102,49 @@ function App() {
           </div>
         </div>
 
-        {/* NOUVEAU: Sélecteur de mode */}
+        {/* NOUVEAU : Bouton reconnaissance vocale */}
+        {voiceSupported && (
+          <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Mic size={20} className={isVoiceActive ? 'text-green-400' : 'text-slate-400'} />
+                <div>
+                  <h3 className="text-white font-semibold text-sm">Reconnaissance vocale</h3>
+                  <p className="text-slate-400 text-xs mt-1">
+                    {isVoiceActive ? '🎤 Écoute en cours...' : 'Activez pour dicter les labels'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={toggleVoiceRecognition}
+                disabled={!isRunning}
+                className={`
+                  ${isVoiceActive 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-slate-600 hover:bg-slate-700'
+                  }
+                  ${!isRunning ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}
+                  text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 transition-all
+                `}
+              >
+                {isVoiceActive ? <Mic size={20} /> : <MicOff size={20} />}
+                {isVoiceActive ? 'Actif' : 'Inactif'}
+              </button>
+            </div>
+            {lastTranscript && isVoiceActive && (
+              <div className="mt-3 bg-slate-700 rounded-lg p-3 border border-slate-600">
+                <p className="text-xs text-slate-400 mb-1">Dernière commande :</p>
+                <p className="text-sm text-amber-300 font-mono">"{lastTranscript}"</p>
+              </div>
+            )}
+            {!isRunning && (
+              <p className="text-amber-400 text-xs mt-3 text-center">
+                ⚠️ Démarrez une session pour activer la reconnaissance vocale
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <h3 className="text-white font-semibold mb-3 text-sm">Mode de labelisation</h3>
           <div className="grid grid-cols-2 gap-3">
@@ -1287,6 +1432,11 @@ function App() {
               {mode === 'borne' 
                 ? '🎯 Cliquez pour démarrer/arrêter chaque phase' 
                 : '⚡ Cliquez pendant l\'événement (5s avant + 5s après)'}
+            </p>
+          )}
+          {isRunning && voiceSupported && isVoiceActive && (
+            <p className="text-green-400 text-xs mt-2 text-center">
+              🎤 Commandes vocales : "virage droite/gauche", "voie droite/gauche", "freinage", "accélération"
             </p>
           )}
         </div>
