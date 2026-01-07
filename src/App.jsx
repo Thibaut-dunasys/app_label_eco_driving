@@ -1168,27 +1168,43 @@ function App() {
 
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-6 mb-4">
           <div className="text-center">
-            <div className="text-5xl sm:text-6xl font-mono font-bold text-white mb-6">
-              {formatTime(elapsedTime)}
-            </div>
-            
             {!isRunning && !sessionEnded ? (
-              <button
-                onClick={startSession}
-                disabled={!imuPermission}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
-              >
-                <Play size={24} />
-                Démarrer
-              </button>
+              <>
+                <div className="mb-6">
+                  <div className="text-slate-400 text-lg mb-2">Prêt à démarrer</div>
+                  <p className="text-slate-500 text-sm">Cliquez sur Démarrer pour lancer l'enregistrement</p>
+                </div>
+                <button
+                  onClick={startSession}
+                  disabled={!imuPermission}
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
+                >
+                  <Play size={24} />
+                  Démarrer
+                </button>
+              </>
             ) : isRunning ? (
-              <button
-                onClick={endSession}
-                className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 active:scale-95 text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
-              >
-                <Square size={24} />
-                Terminer
-              </button>
+              <>
+                <div className="mb-6">
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-2xl font-bold text-red-500">REC</span>
+                  </div>
+                  <div className="text-slate-300 text-sm mb-1">Enregistrement en cours</div>
+                  {sessionStartDate && (
+                    <div className="text-slate-400 text-xs font-mono">
+                      Démarré à {formatTimeOnly(sessionStartDate)}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={endSession}
+                  className="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 active:scale-95 text-white px-12 py-4 rounded-lg text-xl font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
+                >
+                  <Square size={24} />
+                  Terminer
+                </button>
+              </>
             ) : (
               <div className="space-y-4">
                 {uploadStatus === 'idle' && <p className="text-green-400 text-lg font-semibold">✓ Session terminée</p>}
