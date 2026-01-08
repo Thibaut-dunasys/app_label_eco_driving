@@ -79,7 +79,7 @@ function App() {
       oscillator.frequency.value = 800; // Fréquence en Hz (son agréable)
       oscillator.type = 'sine'; // Type de son (sine = doux)
 
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume à 30%
+      gainNode.gain.setValueAtTime(0.8, audioContext.currentTime); // Volume à 80%
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2); // Fade out
 
       oscillator.start(audioContext.currentTime);
