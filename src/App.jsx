@@ -1617,10 +1617,10 @@ function App() {
                   <p className="text-slate-300 text-sm font-semibold mb-3 text-center">Commandes disponibles :</p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {/* Ligne 1: Freinage et Accélération */}
-                    <div className="bg-red-600 rounded px-3 py-2 text-white text-center font-semibold">
+                    <div className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
                       Freinage agressif
                     </div>
-                    <div className="bg-green-600 rounded px-3 py-2 text-white text-center font-semibold">
+                    <div className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
                       Accélération agressive
                     </div>
                     
