@@ -1616,11 +1616,29 @@ function App() {
                 <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
                   <p className="text-slate-300 text-sm font-semibold mb-3 text-center">Commandes disponibles :</p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    {labels.map(label => (
-                      <div key={label.id} className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
-                        {label.name}
-                      </div>
-                    ))}
+                    {/* Ligne 1: Freinage et Accélération */}
+                    <div className="bg-red-600 rounded px-3 py-2 text-white text-center font-semibold">
+                      Freinage agressif
+                    </div>
+                    <div className="bg-green-600 rounded px-3 py-2 text-white text-center font-semibold">
+                      Accélération agressive
+                    </div>
+                    
+                    {/* Ligne 2: Virages */}
+                    <div className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
+                      Virage agressif à gauche
+                    </div>
+                    <div className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
+                      Virage agressif à droite
+                    </div>
+                    
+                    {/* Ligne 3: Changements de voie */}
+                    <div className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
+                      Changement de voie agressif à gauche
+                    </div>
+                    <div className="bg-slate-600 rounded px-3 py-2 text-slate-200 text-center">
+                      Changement de voie agressif à droite
+                    </div>
                   </div>
                 </div>
               </div>
