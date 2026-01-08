@@ -38,6 +38,10 @@ function App() {
   const [lastTranscript, setLastTranscript] = useState('');
   const recognitionRef = useRef(null);
 
+  // Wake Lock pour empêcher la mise en veille
+  const [wakeLock, setWakeLock] = useState(null);
+  const [wakeLockSupported, setWakeLockSupported] = useState(false);
+
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec';
 
   const imuDataRef = useRef(imuData);
@@ -84,6 +88,60 @@ function App() {
       console.error('Erreur beep:', error);
     }
   };
+
+  // Fonctions Wake Lock pour empêcher la mise en veille
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        const lock = await navigator.wakeLock.request('screen');
+        setWakeLock(lock);
+        addDebugLog('🔒 Écran verrouillé (pas de mise en veille)', 'success');
+        
+        // Gérer la libération automatique (ex: changement d'onglet)
+        lock.addEventListener('release', () => {
+          addDebugLog('⚠️ Wake Lock libéré', 'warning');
+        });
+      }
+    } catch (err) {
+      addDebugLog(`❌ Erreur Wake Lock: ${err.message}`, 'error');
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLock) {
+      try {
+        await wakeLock.release();
+        setWakeLock(null);
+        addDebugLog('🔓 Wake Lock libéré', 'info');
+      } catch (err) {
+        addDebugLog(`⚠️ Erreur libération Wake Lock: ${err.message}`, 'warning');
+      }
+    }
+  };
+
+  // Vérifier le support du Wake Lock au chargement
+  useEffect(() => {
+    if ('wakeLock' in navigator) {
+      setWakeLockSupported(true);
+      addDebugLog('✅ Wake Lock API disponible', 'success');
+    } else {
+      setWakeLockSupported(false);
+      addDebugLog('❌ Wake Lock API non disponible', 'warning');
+    }
+  }, []);
+
+  // Réactiver le Wake Lock si l'utilisateur revient sur l'app
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && isRunning && wakeLockSupported && !wakeLock) {
+        addDebugLog('👀 Retour sur l\'app - Réactivation Wake Lock', 'info');
+        await requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isRunning, wakeLockSupported, wakeLock]);
 
   const labels = [
     { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-slate-600', keywords: ['virage droit', 'virage à droite', 'virage droite', 'tourne droite'] },
@@ -445,6 +503,11 @@ function App() {
     setUploadStatus('idle');
     setSensorWarning('');
     
+    // Activer le Wake Lock pour empêcher la mise en veille
+    if (wakeLockSupported) {
+      requestWakeLock();
+    }
+    
     if (mode === 'instantane' || mode === 'vocal') {
       addDebugLog(`📝 Initialisation automatique (mode ${mode})`, 'info');
     }
@@ -687,6 +750,9 @@ function App() {
     setIsRunning(false);
     setSessionEnded(true);
     setCurrentSessionData(newSession);
+    
+    // Libérer le Wake Lock
+    releaseWakeLock();
     
     addDebugLog('💾 Session sauvegardée', 'success');
   };
@@ -1064,6 +1130,9 @@ function App() {
                 </span></div>
                 <div>Events: <span className="text-purple-400">{recordings.length}</span></div>
                 <div>Mode: <span className="text-amber-400">{mode}</span></div>
+                <div>Wake Lock: <span className={wakeLock ? 'text-green-400' : 'text-slate-500'}>
+                  {wakeLock ? '✓ Actif' : '✗ Inactif'}
+                </span></div>
                 {mode === 'vocal' && voiceSupported && (
                   <div>Vocal: <span className={mode === 'vocal' && isRunning ? 'text-green-400' : 'text-red-400'}>
                     {mode === 'vocal' && isRunning ? '✓ Actif' : '✗ Inactif'}
@@ -1352,6 +1421,27 @@ function App() {
           <div className="bg-slate-800 rounded-lg p-3 mb-4 text-center border border-slate-600">
             <p className="text-xs text-slate-400 font-mono mb-1">Début</p>
             <p className="text-base font-semibold text-white font-mono">{formatDateTime(sessionStartDate)}</p>
+          </div>
+        )}
+
+        {/* Indicateur Wake Lock */}
+        {isRunning && wakeLock && (
+          <div className="bg-green-900 border border-green-600 rounded-xl p-3 mb-4">
+            <div className="flex items-center gap-2 justify-center">
+              <span className="text-green-200 text-sm">
+                🔒 Écran protégé - Pas de mise en veille
+              </span>
+            </div>
+          </div>
+        )}
+
+        {!wakeLockSupported && (
+          <div className="bg-amber-900 border border-amber-600 rounded-xl p-3 mb-4">
+            <div className="flex items-center gap-2 justify-center">
+              <span className="text-amber-200 text-xs">
+                ⚠️ Empêchez manuellement la mise en veille dans les paramètres de votre téléphone
+              </span>
+            </div>
           </div>
         )}
 
