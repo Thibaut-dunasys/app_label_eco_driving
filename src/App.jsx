@@ -1722,24 +1722,10 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-left">{label.name}</span>
-                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                        )}
-                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                        )}
-                        {clickedLabel === label.id && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                        )}
-                        {isPending && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
-                        )}
-                      </div>
+                      {label.name}
                     </button>
                   );
                 })()}
@@ -1763,24 +1749,10 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-left">{label.name}</span>
-                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                        )}
-                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                        )}
-                        {clickedLabel === label.id && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                        )}
-                        {isPending && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
-                        )}
-                      </div>
+                      {label.name}
                     </button>
                   );
                 })()}
@@ -1804,24 +1776,10 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-left">{label.name}</span>
-                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                        )}
-                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                        )}
-                        {clickedLabel === label.id && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                        )}
-                        {isPending && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
-                        )}
-                      </div>
+                      {label.name}
                     </button>
                   );
                 })()}
@@ -1848,24 +1806,10 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-left">{label.name}</span>
-                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                        )}
-                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                        )}
-                        {clickedLabel === label.id && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                        )}
-                        {isPending && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
-                        )}
-                      </div>
+                      {label.name}
                     </button>
                   );
                 })()}
@@ -1889,24 +1833,10 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-left">{label.name}</span>
-                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                        )}
-                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                        )}
-                        {clickedLabel === label.id && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                        )}
-                        {isPending && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
-                        )}
-                      </div>
+                      {label.name}
                     </button>
                   );
                 })()}
@@ -1930,24 +1860,10 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
                       `}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-left">{label.name}</span>
-                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                        )}
-                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
-                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                        )}
-                        {clickedLabel === label.id && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                        )}
-                        {isPending && (
-                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
-                        )}
-                      </div>
+                      {label.name}
                     </button>
                   );
                 })()}
