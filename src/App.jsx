@@ -1700,9 +1700,9 @@ function App() {
         {mode !== 'vocal' && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
             <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {/* Colonne GAUCHE */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {/* Accélération */}
                 {(() => {
                   const label = labels.find(l => l.id === 'acceleration');
@@ -1722,10 +1722,11 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
-                      {label.name}
+                      <div>Accélération</div>
+                      <div>agressive</div>
                     </button>
                   );
                 })()}
@@ -1749,10 +1750,11 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
-                      {label.name}
+                      <div>Virage agressif</div>
+                      <div>à gauche</div>
                     </button>
                   );
                 })()}
@@ -1776,17 +1778,18 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
-                      {label.name}
+                      <div>Changement de voie</div>
+                      <div>agressif à gauche</div>
                     </button>
                   );
                 })()}
               </div>
 
               {/* Colonne DROITE */}
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {/* Freinage */}
                 {(() => {
                   const label = labels.find(l => l.id === 'braking');
@@ -1806,10 +1809,11 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
-                      {label.name}
+                      <div>Freinage</div>
+                      <div>agressif</div>
                     </button>
                   );
                 })()}
@@ -1833,10 +1837,11 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
-                      {label.name}
+                      <div>Virage agressif</div>
+                      <div>à droite</div>
                     </button>
                   );
                 })()}
@@ -1860,10 +1865,11 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
-                      {label.name}
+                      <div>Changement de voie</div>
+                      <div>agressif à droite</div>
                     </button>
                   );
                 })()}
