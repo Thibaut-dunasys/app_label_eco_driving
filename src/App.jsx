@@ -1722,7 +1722,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
+                        text-white px-4 py-5 rounded-lg text-sm font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
                       <div>Accélération</div>
@@ -1750,7 +1750,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
+                        text-white px-4 py-5 rounded-lg text-sm font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
                       <div>Virage agressif</div>
@@ -1778,7 +1778,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
+                        text-white px-4 py-5 rounded-lg text-sm font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
                       <div>Changement de voie</div>
@@ -1809,7 +1809,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
+                        text-white px-4 py-5 rounded-lg text-sm font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
                       <div>Freinage</div>
@@ -1837,7 +1837,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
+                        text-white px-4 py-5 rounded-lg text-sm font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
                       <div>Virage agressif</div>
@@ -1865,7 +1865,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center leading-tight
+                        text-white px-4 py-5 rounded-lg text-sm font-semibold transition-all w-full text-center leading-tight
                       `}
                     >
                       <div>Changement de voie</div>
