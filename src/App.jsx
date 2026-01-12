@@ -42,6 +42,13 @@ function App() {
   const [wakeLock, setWakeLock] = useState(null);
   const [wakeLockSupported, setWakeLockSupported] = useState(false);
 
+  // Pull-to-Refresh
+  const [pullStartY, setPullStartY] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullThreshold = 80; // Distance minimale pour déclencher le refresh
+
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxiMLcvhyhqnNvkFmrtKtwsdcdkbuhdH4hRwmIF09GSYAzPoWal672F2UYwSF4xGhYb/exec';
 
   const imuDataRef = useRef(imuData);
@@ -79,7 +86,7 @@ function App() {
       oscillator.frequency.value = 800; // Fréquence en Hz (son agréable)
       oscillator.type = 'sine'; // Type de son (sine = doux)
 
-      gainNode.gain.setValueAtTime(1, audioContext.currentTime); // Volume à 100%
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime); // Volume à 30%
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2); // Fade out
 
       oscillator.start(audioContext.currentTime);
@@ -116,6 +123,80 @@ function App() {
       } catch (err) {
         addDebugLog(`⚠️ Erreur libération Wake Lock: ${err.message}`, 'warning');
       }
+    }
+  };
+
+  // Fonctions Pull-to-Refresh
+  const handleTouchStart = (e) => {
+    // Ne déclencher que si on est en haut de la page
+    if (window.scrollY === 0 && !isRefreshing) {
+      setPullStartY(e.touches[0].clientY);
+      setIsPulling(false);
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (pullStartY === 0 || isRefreshing) return;
+
+    const currentY = e.touches[0].clientY;
+    const distance = currentY - pullStartY;
+
+    // Ne tirer que vers le bas et si on est en haut
+    if (distance > 0 && window.scrollY === 0) {
+      setIsPulling(true);
+      setPullDistance(Math.min(distance, 150)); // Max 150px
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isPulling || isRefreshing) {
+      setPullStartY(0);
+      setPullDistance(0);
+      setIsPulling(false);
+      return;
+    }
+
+    // Si on a tiré assez loin, déclencher le refresh
+    if (pullDistance >= pullThreshold) {
+      performRefresh();
+    } else {
+      // Sinon, réinitialiser
+      setPullDistance(0);
+      setIsPulling(false);
+      setPullStartY(0);
+    }
+  };
+
+  const performRefresh = async () => {
+    setIsRefreshing(true);
+    addDebugLog('🔄 Actualisation...', 'info');
+
+    // Feedback haptique
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+
+    try {
+      // Recharger les données
+      const savedSessions = localStorage.getItem('sessions');
+      if (savedSessions) {
+        setSessions(JSON.parse(savedSessions));
+      }
+
+      // Simulation d'un délai pour l'animation
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      addDebugLog('✅ Actualisation terminée', 'success');
+    } catch (error) {
+      addDebugLog('❌ Erreur lors de l\'actualisation', 'error');
+    } finally {
+      // Réinitialiser les états
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPullDistance(0);
+        setIsPulling(false);
+        setPullStartY(0);
+      }, 300);
     }
   };
 
@@ -1078,7 +1159,43 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe">
+    <div 
+      className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Indicateur Pull-to-Refresh */}
+      <div 
+        className="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
+        style={{
+          transform: `translateY(${isPulling || isRefreshing ? pullDistance - 60 : -60}px)`,
+          transition: isPulling ? 'none' : 'transform 0.3s ease-out'
+        }}
+      >
+        <div className="bg-slate-800 border border-slate-600 rounded-full px-6 py-3 shadow-xl flex items-center gap-3 mt-2">
+          {isRefreshing ? (
+            <>
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-blue-400 font-semibold text-sm">Actualisation...</span>
+            </>
+          ) : (
+            <>
+              <div 
+                className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full"
+                style={{
+                  transform: `rotate(${(pullDistance / pullThreshold) * 360}deg)`,
+                  transition: 'transform 0.1s'
+                }}
+              ></div>
+              <span className="text-slate-400 font-semibold text-sm">
+                {pullDistance >= pullThreshold ? 'Relâchez pour actualiser' : 'Tirez pour actualiser'}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => setShowDebug(!showDebug)}
