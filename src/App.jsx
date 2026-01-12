@@ -1700,59 +1700,264 @@ function App() {
         {mode !== 'vocal' && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
             <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
-          <div className="grid grid-cols-1 gap-3">
-            {labels.map(label => {
-              const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
-              
-              return (
-                <button
-                  key={label.id}
-                  onClick={() => mode !== 'vocal' && toggleLabel(label.id)}
-                  disabled={!isRunning || mode === 'vocal'}
-                  className={`
-                    ${clickedLabel === label.id 
-                      ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
-                      : isPending
-                        ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
-                        : mode === 'borne' && activeLabels[label.id] 
-                          ? `${label.color} ring-2 ring-white shadow-xl` 
-                          : `${label.color}`
-                    }
-                    ${!isRunning || mode === 'vocal' ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                    text-white px-4 py-4 rounded-lg text-base font-semibold transition-all
-                  `}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>{label.name}</span>
-                    {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
-                      <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
-                    )}
-                    {(mode === 'instantane' || mode === 'vocal') && isRunning && clickedLabel !== label.id && !isPending && (
-                      <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
-                    )}
-                    {clickedLabel === label.id && (
-                      <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
-                    )}
-                    {isPending && (
-                      <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Colonne GAUCHE */}
+              <div className="space-y-3">
+                {/* Accélération */}
+                {(() => {
+                  const label = labels.find(l => l.id === 'acceleration');
+                  const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => toggleLabel(label.id)}
+                      disabled={!isRunning}
+                      className={`
+                        ${clickedLabel === label.id 
+                          ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                          : isPending
+                            ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
+                            : mode === 'borne' && activeLabels[label.id] 
+                              ? `${label.color} ring-2 ring-white shadow-xl` 
+                              : `${label.color}`
+                        }
+                        ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-left">{label.name}</span>
+                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                        )}
+                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                        )}
+                        {clickedLabel === label.id && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
+                        )}
+                        {isPending && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Virage gauche */}
+                {(() => {
+                  const label = labels.find(l => l.id === 'left-turn');
+                  const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => toggleLabel(label.id)}
+                      disabled={!isRunning}
+                      className={`
+                        ${clickedLabel === label.id 
+                          ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                          : isPending
+                            ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
+                            : mode === 'borne' && activeLabels[label.id] 
+                              ? `${label.color} ring-2 ring-white shadow-xl` 
+                              : `${label.color}`
+                        }
+                        ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-left">{label.name}</span>
+                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                        )}
+                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                        )}
+                        {clickedLabel === label.id && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
+                        )}
+                        {isPending && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Changement de voie gauche */}
+                {(() => {
+                  const label = labels.find(l => l.id === 'left-lane');
+                  const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => toggleLabel(label.id)}
+                      disabled={!isRunning}
+                      className={`
+                        ${clickedLabel === label.id 
+                          ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                          : isPending
+                            ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
+                            : mode === 'borne' && activeLabels[label.id] 
+                              ? `${label.color} ring-2 ring-white shadow-xl` 
+                              : `${label.color}`
+                        }
+                        ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-left">{label.name}</span>
+                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                        )}
+                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                        )}
+                        {clickedLabel === label.id && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
+                        )}
+                        {isPending && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })()}
+              </div>
+
+              {/* Colonne DROITE */}
+              <div className="space-y-3">
+                {/* Freinage */}
+                {(() => {
+                  const label = labels.find(l => l.id === 'braking');
+                  const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => toggleLabel(label.id)}
+                      disabled={!isRunning}
+                      className={`
+                        ${clickedLabel === label.id 
+                          ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                          : isPending
+                            ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
+                            : mode === 'borne' && activeLabels[label.id] 
+                              ? `${label.color} ring-2 ring-white shadow-xl` 
+                              : `${label.color}`
+                        }
+                        ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-left">{label.name}</span>
+                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                        )}
+                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                        )}
+                        {clickedLabel === label.id && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
+                        )}
+                        {isPending && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Virage droite */}
+                {(() => {
+                  const label = labels.find(l => l.id === 'right-turn');
+                  const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => toggleLabel(label.id)}
+                      disabled={!isRunning}
+                      className={`
+                        ${clickedLabel === label.id 
+                          ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                          : isPending
+                            ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
+                            : mode === 'borne' && activeLabels[label.id] 
+                              ? `${label.color} ring-2 ring-white shadow-xl` 
+                              : `${label.color}`
+                        }
+                        ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-left">{label.name}</span>
+                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                        )}
+                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                        )}
+                        {clickedLabel === label.id && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
+                        )}
+                        {isPending && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })()}
+
+                {/* Changement de voie droite */}
+                {(() => {
+                  const label = labels.find(l => l.id === 'right-lane');
+                  const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
+                  return (
+                    <button
+                      key={label.id}
+                      onClick={() => toggleLabel(label.id)}
+                      disabled={!isRunning}
+                      className={`
+                        ${clickedLabel === label.id 
+                          ? 'bg-green-500 ring-2 ring-green-300 shadow-2xl' 
+                          : isPending
+                            ? 'bg-orange-500 ring-2 ring-orange-300 shadow-xl animate-pulse'
+                            : mode === 'borne' && activeLabels[label.id] 
+                              ? `${label.color} ring-2 ring-white shadow-xl` 
+                              : `${label.color}`
+                        }
+                        ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
+                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full
+                      `}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-left">{label.name}</span>
+                        {mode === 'borne' && activeLabels[label.id] && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/30 px-2 py-1 rounded animate-pulse">●</span>
+                        )}
+                        {mode === 'instantane' && isRunning && clickedLabel !== label.id && !isPending && (
+                          <span className="text-xs bg-white/20 px-2 py-1 rounded">⚡</span>
+                        )}
+                        {clickedLabel === label.id && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded">✓</span>
+                        )}
+                        {isPending && (
+                          <span className="text-xs bg-white/40 px-2 py-1 rounded animate-pulse">⏳</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })()}
+              </div>
+            </div>
           {isRunning && (
             <p className="text-slate-400 text-xs mt-3 text-center">
               {mode === 'borne' 
                 ? '🎯 Cliquez pour démarrer/arrêter chaque phase' 
-                : mode === 'vocal'
-                  ? '🎤 Les labels s\'allument quand vous les dictez'
-                  : '⚡ Cliquez pendant l\'événement (5s avant + 5s après)'}
-            </p>
-          )}
-          {isRunning && voiceSupported && mode === 'vocal' && (
-            <p className="text-green-400 text-xs mt-2 text-center">
-              🎤 Commandes vocales : "virage droite/gauche", "voie droite/gauche", "freinage", "accélération"
+                : '⚡ Cliquez pendant l\'événement (5s avant + 5s après)'}
             </p>
           )}
         </div>
