@@ -579,6 +579,57 @@ function App() {
     return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}`;
   };
 
+  const startNewSession = () => {
+    // Réinitialiser complètement tous les états
+    addDebugLog('🆕 Nouveau trajet - Réinitialisation', 'info');
+    
+    setIsRunning(false);
+    setElapsedTime(0);
+    setStartTime(null);
+    setSessionStartDate(null);
+    setActiveLabels({});
+    setRecordings([]);
+    setSessionEnded(false);
+    setCurrentSessionData(null);
+    setImuHistory([]);
+    setUploadStatus('idle');
+    setSensorWarning('');
+    setPendingLabels({});
+    setClickedLabel(null);
+    
+    // Changer de page
+    setCurrentPage('labeling');
+    
+    addDebugLog('✅ Prêt pour un nouveau trajet', 'success');
+  };
+
+  const resetSessionAndGoHome = () => {
+    // Réinitialiser tous les états de session
+    addDebugLog('🏠 Retour à l\'accueil - Réinitialisation', 'info');
+    
+    setIsRunning(false);
+    setElapsedTime(0);
+    setStartTime(null);
+    setSessionStartDate(null);
+    setActiveLabels({});
+    setRecordings([]);
+    setSessionEnded(false);
+    setCurrentSessionData(null);
+    setImuHistory([]);
+    setUploadStatus('idle');
+    setSensorWarning('');
+    setPendingLabels({});
+    setClickedLabel(null);
+    
+    // Libérer le Wake Lock si actif
+    if (wakeLock) {
+      releaseWakeLock();
+    }
+    
+    // Retour à l'accueil
+    setCurrentPage('home');
+  };
+
   const startSession = () => {
     const now = new Date();
     addDebugLog('🚀 Démarrage session', 'success');
@@ -1044,7 +1095,7 @@ function App() {
 
           <div className="text-center mb-8">
             <button
-              onClick={() => setCurrentPage('labeling')}
+              onClick={startNewSession}
               className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-8 py-4 rounded-lg text-lg font-semibold inline-flex items-center gap-2 transition-all shadow-lg w-full sm:w-auto justify-center"
             >
               <Play size={20} />
@@ -1281,11 +1332,10 @@ function App() {
           onClick={() => {
             if (isRunning) {
               if (window.confirm('Voulez-vous vraiment quitter ? La session en cours sera perdue.')) {
-                setIsRunning(false);
-                setCurrentPage('home');
+                resetSessionAndGoHome();
               }
             } else {
-              setCurrentPage('home');
+              resetSessionAndGoHome();
             }
           }}
           className="mb-4 text-slate-300 hover:text-white inline-flex items-center gap-2 active:scale-95"
