@@ -1722,7 +1722,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
                       `}
                     >
                       {label.name}
@@ -1749,7 +1749,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
                       `}
                     >
                       {label.name}
@@ -1776,7 +1776,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
                       `}
                     >
                       {label.name}
@@ -1806,7 +1806,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
                       `}
                     >
                       {label.name}
@@ -1833,7 +1833,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
                       `}
                     >
                       {label.name}
@@ -1860,7 +1860,7 @@ function App() {
                               : `${label.color}`
                         }
                         ${!isRunning ? 'opacity-40 cursor-not-allowed' : 'active:scale-95'}
-                        text-white px-4 py-4 rounded-lg text-sm font-semibold transition-all w-full text-left
+                        text-white px-3 py-3 rounded-lg text-xs font-semibold transition-all w-full text-center
                       `}
                     >
                       {label.name}
