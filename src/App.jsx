@@ -128,15 +128,15 @@ function App() {
 
   // Fonctions Pull-to-Refresh
   const handleTouchStart = (e) => {
-    // Ne déclencher que si on est en haut de la page
-    if (window.scrollY === 0 && !isRefreshing) {
+    // Ne déclencher que si on est en haut de la page et pas pendant une session
+    if (window.scrollY === 0 && !isRefreshing && !isRunning) {
       setPullStartY(e.touches[0].clientY);
       setIsPulling(false);
     }
   };
 
   const handleTouchMove = (e) => {
-    if (pullStartY === 0 || isRefreshing) return;
+    if (pullStartY === 0 || isRefreshing || isRunning) return;
 
     const currentY = e.touches[0].clientY;
     const distance = currentY - pullStartY;
@@ -149,7 +149,7 @@ function App() {
   };
 
   const handleTouchEnd = () => {
-    if (!isPulling || isRefreshing) {
+    if (!isPulling || isRefreshing || isRunning) {
       setPullStartY(0);
       setPullDistance(0);
       setIsPulling(false);
@@ -169,26 +169,36 @@ function App() {
 
   const performRefresh = async () => {
     setIsRefreshing(true);
-    addDebugLog('🔄 Actualisation...', 'info');
-
+    
     // Feedback haptique
     if ('vibrate' in navigator) {
       navigator.vibrate(50);
     }
 
     try {
-      // Recharger les données
-      const savedSessions = localStorage.getItem('sessions');
-      if (savedSessions) {
-        setSessions(JSON.parse(savedSessions));
+      if (currentPage === 'home') {
+        // Sur la page d'accueil : recharger les sessions
+        addDebugLog('🔄 Actualisation de l\'historique...', 'info');
+        
+        const savedSessions = localStorage.getItem('sessions');
+        if (savedSessions) {
+          const loadedSessions = JSON.parse(savedSessions);
+          setSessions(loadedSessions);
+          addDebugLog(`✅ ${loadedSessions.length} session(s) chargée(s)`, 'success');
+        } else {
+          addDebugLog('📋 Aucune session en mémoire', 'info');
+        }
+      } else {
+        // Sur les autres pages : message générique
+        addDebugLog('🔄 Actualisation...', 'info');
       }
 
       // Simulation d'un délai pour l'animation
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      addDebugLog('✅ Actualisation terminée', 'success');
     } catch (error) {
       addDebugLog('❌ Erreur lors de l\'actualisation', 'error');
+      console.error(error);
     } finally {
       // Réinitialiser les états
       setTimeout(() => {
@@ -987,7 +997,43 @@ function App() {
 
   if (currentPage === 'home') {
     return (
-      <div className="min-h-screen bg-slate-700 p-4 sm:p-8">
+      <div 
+        className="min-h-screen bg-slate-700 p-4 sm:p-8"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Indicateur Pull-to-Refresh */}
+        <div 
+          className="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
+          style={{
+            transform: `translateY(${isPulling || isRefreshing ? pullDistance - 60 : -60}px)`,
+            transition: isPulling ? 'none' : 'transform 0.3s ease-out'
+          }}
+        >
+          <div className="bg-slate-800 border border-slate-600 rounded-full px-6 py-3 shadow-xl flex items-center gap-3 mt-2">
+            {isRefreshing ? (
+              <>
+                <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-cyan-400 font-semibold text-sm">Actualisation...</span>
+              </>
+            ) : (
+              <>
+                <div 
+                  className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full"
+                  style={{
+                    transform: `rotate(${(pullDistance / pullThreshold) * 360}deg)`,
+                    transition: 'transform 0.1s'
+                  }}
+                ></div>
+                <span className="text-slate-400 font-semibold text-sm">
+                  {pullDistance >= pullThreshold ? 'Relâchez pour actualiser' : 'Tirez pour actualiser'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="max-w-4xl mx-auto">
           <div className="mb-8 text-center">
             <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
@@ -1161,41 +1207,7 @@ function App() {
   return (
     <div 
       className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
     >
-      {/* Indicateur Pull-to-Refresh */}
-      <div 
-        className="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
-        style={{
-          transform: `translateY(${isPulling || isRefreshing ? pullDistance - 60 : -60}px)`,
-          transition: isPulling ? 'none' : 'transform 0.3s ease-out'
-        }}
-      >
-        <div className="bg-slate-800 border border-slate-600 rounded-full px-6 py-3 shadow-xl flex items-center gap-3 mt-2">
-          {isRefreshing ? (
-            <>
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-blue-400 font-semibold text-sm">Actualisation...</span>
-            </>
-          ) : (
-            <>
-              <div 
-                className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full"
-                style={{
-                  transform: `rotate(${(pullDistance / pullThreshold) * 360}deg)`,
-                  transition: 'transform 0.1s'
-                }}
-              ></div>
-              <span className="text-slate-400 font-semibold text-sm">
-                {pullDistance >= pullThreshold ? 'Relâchez pour actualiser' : 'Tirez pour actualiser'}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => setShowDebug(!showDebug)}
