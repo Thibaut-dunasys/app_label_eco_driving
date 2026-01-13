@@ -508,69 +508,62 @@ function App() {
   useEffect(() => {
     if (!isRunning) return;
 
-    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz (intervalle: 250ms)', 'success');
+    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz (250ms)', 'success');
 
-    let lastLogTime = Date.now();
-    let measurementCount = 0;
-    let lastRecordTime = Date.now();
-    let isRecording = true;
+    let recordCount = 0;
+    let startTime = Date.now();
+    let lastIntervalTime = startTime;
+    let intervalTimes = [];
 
-    const recordData = () => {
-      if (!isRecording) return;
-
+    // Utiliser setInterval mais vérifier le temps réel pour compenser les retards
+    const interval = setInterval(() => {
+      recordCount++;
       const now = Date.now();
-      const timeSinceLastRecord = now - lastRecordTime;
-
-      // Enregistrer si au moins 250ms se sont écoulées (4Hz)
-      if (timeSinceLastRecord >= 250) {
-        const currentImuData = imuDataRef.current;
-        measurementCount++;
+      const intervalDelay = now - lastIntervalTime;
+      intervalTimes.push(intervalDelay);
+      lastIntervalTime = now;
+      
+      const currentImuData = imuDataRef.current;
+      
+      const dataPoint = {
+        timestamp: now,
+        ax: Number(currentImuData.ax) || 0,
+        ay: Number(currentImuData.ay) || 0,
+        az: Number(currentImuData.az) || 0,
+        gx: Number(currentImuData.gx) || 0,
+        gy: Number(currentImuData.gy) || 0,
+        gz: Number(currentImuData.gz) || 0
+      };
+      
+      setImuHistory(prev => {
+        const updated = [...prev, dataPoint];
         
-        const dataPoint = {
-          timestamp: now,
-          ax: Number(currentImuData.ax) || 0,
-          ay: Number(currentImuData.ay) || 0,
-          az: Number(currentImuData.az) || 0,
-          gx: Number(currentImuData.gx) || 0,
-          gy: Number(currentImuData.gy) || 0,
-          gz: Number(currentImuData.gz) || 0
-        };
+        if (updated.length === 1) {
+          addDebugLog('📊 Première mesure à ' + now, 'info');
+        }
         
-        setImuHistory(prev => {
-          const updated = [...prev, dataPoint];
-          
-          // Log détaillé pour vérifier la fréquence réelle
-          if (updated.length === 1) {
-            addDebugLog('📊 Première mesure enregistrée', 'info');
-          }
-          
-          if (updated.length % 20 === 0) {
-            const logNow = Date.now();
-            const elapsed = (logNow - lastLogTime) / 1000;
-            const actualFrequency = (20 / elapsed).toFixed(2);
-            const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
-            addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Fréquence: ${actualFrequency} Hz | Intervalle réel: ${(elapsed * 1000 / 20).toFixed(0)}ms`, 'info');
-            lastLogTime = logNow;
-          }
-          
-          return updated;
-        });
-
-        lastRecordTime = now;
-      }
-
-      // Utiliser requestAnimationFrame pour une exécution fluide
-      if (isRecording) {
-        requestAnimationFrame(recordData);
-      }
-    };
-
-    // Démarrer l'enregistrement
-    requestAnimationFrame(recordData);
+        if (updated.length === 4) {
+          const avgInterval = intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length;
+          addDebugLog(`⏱️ Délai réel entre mesures: ${avgInterval.toFixed(0)}ms (cible: 250ms)`, 'warning');
+        }
+        
+        if (updated.length % 20 === 0) {
+          const elapsed = (now - startTime) / 1000;
+          const actualFreq = (updated.length / elapsed).toFixed(2);
+          const avgInterval = (elapsed * 1000 / updated.length).toFixed(0);
+          const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0).length;
+          const recentAvg = intervalTimes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+          addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Freq: ${actualFreq} Hz | Moy: ${avgInterval}ms | Récent: ${recentAvg.toFixed(0)}ms`, 'info');
+        }
+        
+        return updated;
+      });
+    }, 250);
 
     return () => {
-      isRecording = false;
-      addDebugLog('🛑 Arrêt enregistrement IMU', 'warning');
+      clearInterval(interval);
+      const avgInterval = intervalTimes.length > 0 ? intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length : 0;
+      addDebugLog(`🛑 Arrêt IMU - Intervalle moyen: ${avgInterval.toFixed(0)}ms (${recordCount} enregistrements)`, 'warning');
     };
   }, [isRunning]);
 
@@ -578,58 +571,67 @@ function App() {
   useEffect(() => {
     if (!isRunning) return;
 
-    addDebugLog('🟢 Système enregistrement "non agressive" activé', 'info');
+    addDebugLog('🟢 Système "non agressive" démarré (check toutes les 5s)', 'info');
 
-    const nonAggressiveInterval = setInterval(() => {
-      const currentTime = elapsedTime;
-      const currentTimestamp = Date.now();
+    const checkInterval = setInterval(() => {
+      const now = Date.now();
       
-      // Vérifier s'il y a des labels actifs (mode borné) ou en attente (mode instantané/vocal)
-      const hasActiveLabels = Object.keys(activeLabels).length > 0;
-      const hasPendingLabels = Object.keys(pendingLabels).length > 0;
+      addDebugLog(`🔍 Check non agressive: activeLabels=${Object.keys(activeLabels).length}, pendingLabels=${Object.keys(pendingLabels).length}, recordings=${recordings.length}`, 'info');
       
-      // Si aucun événement en cours et qu'on a assez de temps écoulé
-      if (!hasActiveLabels && !hasPendingLabels && currentTime > 5000) {
-        // Calculer depuis le dernier événement ou le début
-        let startTimestamp = sessionStartDate.getTime();
-        let startTime = 0;
+      // Vérifier s'il y a des labels actifs ou en attente
+      const hasActive = Object.keys(activeLabels).length > 0;
+      const hasPending = Object.keys(pendingLabels).length > 0;
+      
+      if (!hasActive && !hasPending && elapsedTime > 5000) {
+        // Trouver le timestamp de fin du dernier enregistrement
+        let lastEndTime = sessionStartDate.getTime();
         
         if (recordings.length > 0) {
-          const lastRecording = recordings[recordings.length - 1];
-          startTimestamp = lastRecording.absoluteEndTime.getTime();
-          startTime = (startTimestamp - sessionStartDate.getTime());
+          const lastRec = recordings[recordings.length - 1];
+          lastEndTime = lastRec.absoluteEndTime.getTime();
         }
         
-        const duration = currentTimestamp - startTimestamp;
+        const timeSinceLast = now - lastEndTime;
         
-        // Si on a accumulé au moins 5 secondes depuis le dernier événement, enregistrer
-        if (duration >= 5000) {
-          const periodImuData = imuHistory.filter(d => 
-            d.timestamp >= startTimestamp && d.timestamp <= currentTimestamp
+        addDebugLog(`⏱️ Temps depuis dernier event: ${(timeSinceLast/1000).toFixed(1)}s`, 'info');
+        
+        // Si au moins 5 secondes se sont écoulées depuis le dernier événement
+        if (timeSinceLast >= 5000) {
+          const periodData = imuHistory.filter(d => 
+            d.timestamp > lastEndTime && d.timestamp <= now
           );
           
-          if (periodImuData.length > 0) {
-            const nonZero = periodImuData.filter(d => 
-              d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0
+          if (periodData.length > 0) {
+            const duration = now - lastEndTime;
+            const nonZero = periodData.filter(d => 
+              d.ax !== 0 || d.ay !== 0 || d.az !== 0
             ).length;
             
-            addDebugLog(`🟢 Conduite non agressive (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null) | ${(periodImuData.length / (duration/1000)).toFixed(1)} Hz`, 'success');
+            const relativeStartTime = lastEndTime - sessionStartDate.getTime();
+            const relativeEndTime = now - sessionStartDate.getTime();
+            
+            addDebugLog(`🟢 ENREGISTREMENT non agressive: ${periodData.length} mesures sur ${(duration/1000).toFixed(1)}s = ${(periodData.length / (duration/1000)).toFixed(1)} Hz`, 'success');
             
             setRecordings(prev => [...prev, {
               label: 'Conduite non agressive',
-              startTime: formatTime(startTime),
-              endTime: formatTime(currentTime),
+              startTime: formatTime(relativeStartTime),
+              endTime: formatTime(relativeEndTime),
               duration: formatTime(duration),
-              absoluteStartTime: new Date(startTimestamp),
-              absoluteEndTime: new Date(currentTimestamp),
-              imuData: periodImuData
+              absoluteStartTime: new Date(lastEndTime),
+              absoluteEndTime: new Date(now),
+              imuData: periodData
             }]);
+          } else {
+            addDebugLog(`⚠️ Pas de données IMU pour la période`, 'warning');
           }
         }
       }
-    }, 5000); // Vérifier toutes les 5 secondes
+    }, 5000);
 
-    return () => clearInterval(nonAggressiveInterval);
+    return () => {
+      clearInterval(checkInterval);
+      addDebugLog('🛑 Système "non agressive" arrêté', 'warning');
+    };
   }, [isRunning, elapsedTime, activeLabels, pendingLabels, recordings, imuHistory, sessionStartDate]);
 
   const formatTime = (ms) => {
@@ -1147,7 +1149,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v4.0-RAF ✅
+          v4.1-DEBUG ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1357,7 +1359,7 @@ function App() {
     >
       {/* VERSION INDICATOR - Pour vérifier le déploiement */}
       <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v4.0-RAF ✅
+        v4.1-DEBUG ✅
       </div>
       
       <div className="max-w-4xl mx-auto">
