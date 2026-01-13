@@ -1297,7 +1297,7 @@ function App() {
                   </div>
                   {rec.imuData && rec.imuData.length > 0 && (
                     <p className="text-xs text-cyan-400 font-mono mt-1">
-                      {rec.imuData.length} mesures IMU (2Hz)
+                      {rec.imuData.length} mesures IMU (4Hz)
                     </p>
                   )}
                 </div>
@@ -1617,7 +1617,7 @@ function App() {
             <div>
               <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
               <p className="text-xs text-slate-400 font-mono mt-1">
-                {isRunning ? '🔴 Enregistrement continu à 2Hz' : 'Fréquence: 2Hz (0.5s)'}
+                {isRunning ? '🔴 Enregistrement continu à 4Hz' : 'Fréquence: 4Hz (0.25s)'}
               </p>
             </div>
             <span className={`text-xs px-3 py-1 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
@@ -2055,7 +2055,7 @@ function App() {
                           {rec.imuData && rec.imuData.length > 0 && (
                             <>
                               <span className="text-slate-500">•</span>
-                              <span className="text-cyan-400">{rec.imuData.length} mesures (2Hz)</span>
+                              <span className="text-cyan-400">{rec.imuData.length} mesures (4Hz)</span>
                             </>
                           )}
                         </div>
@@ -2073,7 +2073,7 @@ function App() {
             <div className="flex items-center gap-2 justify-center">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
               <span className="text-emerald-200 font-mono text-sm">
-                Enregistrement continu : {imuHistory.length} mesures (2Hz)
+                Enregistrement continu : {imuHistory.length} mesures (4Hz)
               </span>
             </div>
           </div>
