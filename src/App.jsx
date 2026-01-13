@@ -1145,6 +1145,11 @@ function App() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
+        {/* VERSION INDICATOR - Pour vérifier le déploiement */}
+        <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
+          v4.0-RAF ✅
+        </div>
+        
         {/* Indicateur Pull-to-Refresh */}
         <div 
           className="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
@@ -1350,6 +1355,11 @@ function App() {
     <div 
       className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe"
     >
+      {/* VERSION INDICATOR - Pour vérifier le déploiement */}
+      <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
+        v4.0-RAF ✅
+      </div>
+      
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => setShowDebug(!showDebug)}
