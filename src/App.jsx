@@ -519,60 +519,69 @@ function App() {
   useEffect(() => {
     if (!isRunning) return;
 
-    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz (250ms)', 'success');
+    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz direct (devicemotion)', 'success');
 
     let recordCount = 0;
     let startTime = Date.now();
-    let lastIntervalTime = startTime;
+    let lastRecordTime = Date.now();
     let intervalTimes = [];
 
-    // Utiliser setInterval mais vérifier le temps réel pour compenser les retards
-    const interval = setInterval(() => {
-      recordCount++;
+    // Enregistrer DIRECTEMENT depuis devicemotion au lieu d'utiliser setInterval
+    const handleMotionRecording = (event) => {
       const now = Date.now();
-      const intervalDelay = now - lastIntervalTime;
-      intervalTimes.push(intervalDelay);
-      lastIntervalTime = now;
+      const timeSinceLastRecord = now - lastRecordTime;
       
-      const currentImuData = imuDataRef.current;
-      
-      const dataPoint = {
-        timestamp: now,
-        ax: Number(currentImuData.ax) || 0,
-        ay: Number(currentImuData.ay) || 0,
-        az: Number(currentImuData.az) || 0,
-        gx: Number(currentImuData.gx) || 0,
-        gy: Number(currentImuData.gy) || 0,
-        gz: Number(currentImuData.gz) || 0
-      };
-      
-      setImuHistory(prev => {
-        const updated = [...prev, dataPoint];
+      // Enregistrer seulement si au moins 250ms se sont écoulées (4Hz)
+      if (timeSinceLastRecord >= 250) {
+        recordCount++;
+        intervalTimes.push(timeSinceLastRecord);
+        lastRecordTime = now;
         
-        if (updated.length === 1) {
-          addDebugLog('📊 Première mesure à ' + now, 'info');
+        const accel = event.acceleration || event.accelerationIncludingGravity;
+        const rotation = event.rotationRate;
+        
+        if (accel && rotation) {
+          const dataPoint = {
+            timestamp: now,
+            ax: accel.x !== null && accel.x !== undefined ? Number(accel.x.toFixed(2)) : 0,
+            ay: accel.y !== null && accel.y !== undefined ? Number(accel.y.toFixed(2)) : 0,
+            az: accel.z !== null && accel.z !== undefined ? Number(accel.z.toFixed(2)) : 0,
+            gx: rotation.alpha !== null && rotation.alpha !== undefined ? Number(rotation.alpha.toFixed(2)) : 0,
+            gy: rotation.beta !== null && rotation.beta !== undefined ? Number(rotation.beta.toFixed(2)) : 0,
+            gz: rotation.gamma !== null && rotation.gamma !== undefined ? Number(rotation.gamma.toFixed(2)) : 0
+          };
+          
+          setImuHistory(prev => {
+            const updated = [...prev, dataPoint];
+            
+            if (updated.length === 1) {
+              addDebugLog('📊 Première mesure via devicemotion', 'info');
+            }
+            
+            if (updated.length === 4) {
+              const avgInterval = intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length;
+              addDebugLog(`⏱️ Délai réel devicemotion: ${avgInterval.toFixed(0)}ms (cible: 250ms)`, 'warning');
+            }
+            
+            if (updated.length % 20 === 0) {
+              const elapsed = (now - startTime) / 1000;
+              const actualFreq = (updated.length / elapsed).toFixed(2);
+              const avgInterval = (elapsed * 1000 / updated.length).toFixed(0);
+              const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0).length;
+              const recentAvg = intervalTimes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+              addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Freq: ${actualFreq} Hz | Moy: ${avgInterval}ms | Récent: ${recentAvg.toFixed(0)}ms`, 'info');
+            }
+            
+            return updated;
+          });
         }
-        
-        if (updated.length === 4) {
-          const avgInterval = intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length;
-          addDebugLog(`⏱️ Délai réel entre mesures: ${avgInterval.toFixed(0)}ms (cible: 250ms)`, 'warning');
-        }
-        
-        if (updated.length % 20 === 0) {
-          const elapsed = (now - startTime) / 1000;
-          const actualFreq = (updated.length / elapsed).toFixed(2);
-          const avgInterval = (elapsed * 1000 / updated.length).toFixed(0);
-          const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0).length;
-          const recentAvg = intervalTimes.slice(-20).reduce((a, b) => a + b, 0) / 20;
-          addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Freq: ${actualFreq} Hz | Moy: ${avgInterval}ms | Récent: ${recentAvg.toFixed(0)}ms`, 'info');
-        }
-        
-        return updated;
-      });
-    }, 250);
+      }
+    };
+
+    window.addEventListener('devicemotion', handleMotionRecording);
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('devicemotion', handleMotionRecording);
       const avgInterval = intervalTimes.length > 0 ? intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length : 0;
       addDebugLog(`🛑 Arrêt IMU - Intervalle moyen: ${avgInterval.toFixed(0)}ms (${recordCount} enregistrements)`, 'warning');
     };
@@ -1196,7 +1205,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v5.0-GAPS ✅
+          v5.1-REAL4HZ ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1406,7 +1415,7 @@ function App() {
     >
       {/* VERSION INDICATOR - Pour vérifier le déploiement */}
       <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v5.0-GAPS ✅
+        v5.1-REAL4HZ ✅
       </div>
       
       <div className="max-w-4xl mx-auto">
