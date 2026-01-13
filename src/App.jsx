@@ -578,78 +578,7 @@ function App() {
     };
   }, [isRunning]);
 
-  // Enregistrement automatique "Conduite non agressive" entre les événements
-  useEffect(() => {
-    if (!isRunning) return;
-
-    addDebugLog('🟢 Système "non agressive" démarré (check toutes les 5s)', 'info');
-
-    const checkInterval = setInterval(() => {
-      const now = Date.now();
-      const currentElapsed = Date.now() - startTime;
-      
-      // Copier les valeurs des états pour éviter les re-renders
-      const currentActiveLabels = { ...activeLabels };
-      const currentPendingLabels = { ...pendingLabels };
-      const currentRecordings = [...recordings];
-      
-      addDebugLog(`🔍 Check non agressive: active=${Object.keys(currentActiveLabels).length}, pending=${Object.keys(currentPendingLabels).length}, recordings=${currentRecordings.length}`, 'info');
-      
-      // Vérifier s'il y a des labels actifs ou en attente
-      const hasActive = Object.keys(currentActiveLabels).length > 0;
-      const hasPending = Object.keys(currentPendingLabels).length > 0;
-      
-      if (!hasActive && !hasPending && currentElapsed > 5000) {
-        // Trouver le timestamp de fin du dernier enregistrement
-        let lastEndTime = sessionStartDate.getTime();
-        
-        if (currentRecordings.length > 0) {
-          const lastRec = currentRecordings[currentRecordings.length - 1];
-          lastEndTime = lastRec.absoluteEndTime.getTime();
-        }
-        
-        const timeSinceLast = now - lastEndTime;
-        
-        addDebugLog(`⏱️ Temps depuis dernier event: ${(timeSinceLast/1000).toFixed(1)}s`, 'info');
-        
-        // Si au moins 5 secondes se sont écoulées depuis le dernier événement
-        if (timeSinceLast >= 5000) {
-          const periodData = imuHistory.filter(d => 
-            d.timestamp > lastEndTime && d.timestamp <= now
-          );
-          
-          if (periodData.length > 0) {
-            const duration = now - lastEndTime;
-            const nonZero = periodData.filter(d => 
-              d.ax !== 0 || d.ay !== 0 || d.az !== 0
-            ).length;
-            
-            const relativeStartTime = lastEndTime - sessionStartDate.getTime();
-            const relativeEndTime = now - sessionStartDate.getTime();
-            
-            addDebugLog(`🟢 ENREGISTREMENT non agressive: ${periodData.length} mesures sur ${(duration/1000).toFixed(1)}s = ${(periodData.length / (duration/1000)).toFixed(1)} Hz`, 'success');
-            
-            setRecordings(prev => [...prev, {
-              label: 'Conduite non agressive',
-              startTime: formatTime(relativeStartTime),
-              endTime: formatTime(relativeEndTime),
-              duration: formatTime(duration),
-              absoluteStartTime: new Date(lastEndTime),
-              absoluteEndTime: new Date(now),
-              imuData: periodData
-            }]);
-          } else {
-            addDebugLog(`⚠️ Pas de données IMU pour la période`, 'warning');
-          }
-        }
-      }
-    }, 5000);
-
-    return () => {
-      clearInterval(checkInterval);
-      addDebugLog('🛑 Système "non agressive" arrêté', 'warning');
-    };
-  }, [isRunning, startTime, sessionStartDate]);
+  // PLUS BESOIN de ce système, on va gérer ça différemment
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -943,6 +872,7 @@ function App() {
     const nonZero = imuHistory.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
     addDebugLog(`🏁 Fin: ${imuHistory.length} mesures (${nonZero} non-null)`, 'success');
     
+    // Ajouter les labels actifs aux enregistrements
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
         label: 'Initialisation',
@@ -974,7 +904,105 @@ function App() {
       });
     }
 
-    finalRecordings.push({
+    // ===== NOUVELLE LOGIQUE : REMPLIR TOUS LES TROUS AVEC "CONDUITE NON AGRESSIVE" =====
+    addDebugLog('🔍 Analyse des trous pour "Conduite non agressive"...', 'info');
+    
+    // Trier les enregistrements par temps de début (exclure "Fin" et "Initialisation")
+    const sortedRecordings = finalRecordings
+      .filter(r => r.label !== 'Fin' && r.label !== 'Initialisation')
+      .sort((a, b) => a.absoluteStartTime.getTime() - b.absoluteStartTime.getTime());
+    
+    const allRecordingsWithGaps = [];
+    const sessionStart = sessionStartDate.getTime();
+    const sessionEnd = currentTimestamp;
+    
+    // Si la session n'est QUE "Initialisation", la convertir en "Conduite non agressive"
+    if (finalRecordings.length === 1 && finalRecordings[0].label === 'Initialisation') {
+      allRecordingsWithGaps.push({
+        ...finalRecordings[0],
+        label: 'Conduite non agressive'
+      });
+      addDebugLog('🟢 Initialisation convertie en "Conduite non agressive"', 'success');
+    } else {
+      // Vérifier s'il y a un trou au début
+      if (sortedRecordings.length === 0 || sortedRecordings[0].absoluteStartTime.getTime() > sessionStart) {
+        const gapStart = sessionStart;
+        const gapEnd = sortedRecordings.length > 0 ? sortedRecordings[0].absoluteStartTime.getTime() : sessionEnd;
+        const duration = gapEnd - gapStart;
+        
+        if (duration > 1000) { // Au moins 1 seconde
+          const gapImuData = imuHistory.filter(d => d.timestamp >= gapStart && d.timestamp < gapEnd);
+          
+          allRecordingsWithGaps.push({
+            label: 'Conduite non agressive',
+            startTime: formatTime(0),
+            endTime: formatTime(gapEnd - sessionStart),
+            duration: formatTime(duration),
+            absoluteStartTime: new Date(gapStart),
+            absoluteEndTime: new Date(gapEnd),
+            imuData: gapImuData
+          });
+          
+          addDebugLog(`🟢 Trou début: ${gapImuData.length} mesures (${(duration/1000).toFixed(1)}s)`, 'success');
+        }
+      }
+      
+      // Ajouter les enregistrements et combler les trous entre eux
+      sortedRecordings.forEach((recording, index) => {
+        allRecordingsWithGaps.push(recording);
+        
+        // Vérifier s'il y a un trou après cet enregistrement
+        if (index < sortedRecordings.length - 1) {
+          const currentEnd = recording.absoluteEndTime.getTime();
+          const nextStart = sortedRecordings[index + 1].absoluteStartTime.getTime();
+          const gapDuration = nextStart - currentEnd;
+          
+          if (gapDuration > 1000) { // Au moins 1 seconde
+            const gapImuData = imuHistory.filter(d => d.timestamp > currentEnd && d.timestamp < nextStart);
+            
+            allRecordingsWithGaps.push({
+              label: 'Conduite non agressive',
+              startTime: formatTime(currentEnd - sessionStart),
+              endTime: formatTime(nextStart - sessionStart),
+              duration: formatTime(gapDuration),
+              absoluteStartTime: new Date(currentEnd),
+              absoluteEndTime: new Date(nextStart),
+              imuData: gapImuData
+            });
+            
+            addDebugLog(`🟢 Trou entre événements: ${gapImuData.length} mesures (${(gapDuration/1000).toFixed(1)}s)`, 'success');
+          }
+        }
+      });
+      
+      // Vérifier s'il y a un trou à la fin
+      if (sortedRecordings.length > 0) {
+        const lastEnd = sortedRecordings[sortedRecordings.length - 1].absoluteEndTime.getTime();
+        const gapDuration = sessionEnd - lastEnd;
+        
+        if (gapDuration > 1000) { // Au moins 1 seconde
+          const gapImuData = imuHistory.filter(d => d.timestamp > lastEnd && d.timestamp <= sessionEnd);
+          
+          allRecordingsWithGaps.push({
+            label: 'Conduite non agressive',
+            startTime: formatTime(lastEnd - sessionStart),
+            endTime: formatTime(currentTime),
+            duration: formatTime(gapDuration),
+            absoluteStartTime: new Date(lastEnd),
+            absoluteEndTime: new Date(sessionEnd),
+            imuData: gapImuData
+          });
+          
+          addDebugLog(`🟢 Trou fin: ${gapImuData.length} mesures (${(gapDuration/1000).toFixed(1)}s)`, 'success');
+        }
+      }
+    }
+    
+    // Trier par ordre chronologique
+    allRecordingsWithGaps.sort((a, b) => a.absoluteStartTime.getTime() - b.absoluteStartTime.getTime());
+    
+    // Ajouter le marqueur "Fin"
+    allRecordingsWithGaps.push({
       label: 'Fin',
       startTime: formatTime(currentTime),
       endTime: formatTime(currentTime),
@@ -983,6 +1011,8 @@ function App() {
       absoluteEndTime: endDate,
       imuData: []
     });
+    
+    addDebugLog(`✅ ${allRecordingsWithGaps.length} enregistrements (trous comblés)`, 'success');
 
     const newSession = {
       id: Date.now(),
@@ -990,13 +1020,13 @@ function App() {
       endDate: endDate,
       duration: formatTime(currentTime),
       carName: carName || 'Sans nom',
-      recordings: finalRecordings
+      recordings: allRecordingsWithGaps
     };
 
     const updatedSessions = [newSession, ...sessions];
     saveSessions(updatedSessions);
     
-    setRecordings(finalRecordings);
+    setRecordings(allRecordingsWithGaps);
     setActiveLabels({});
     setPendingLabels({});
     setIsRunning(false);
@@ -1166,7 +1196,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v4.2-FIX ✅
+          v5.0-GAPS ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1376,7 +1406,7 @@ function App() {
     >
       {/* VERSION INDICATOR - Pour vérifier le déploiement */}
       <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v4.2-FIX ✅
+        v5.0-GAPS ✅
       </div>
       
       <div className="max-w-4xl mx-auto">
