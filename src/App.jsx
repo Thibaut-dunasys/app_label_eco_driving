@@ -508,10 +508,14 @@ function App() {
   useEffect(() => {
     if (!isRunning) return;
 
-    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz', 'success');
+    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz (intervalle: 250ms)', 'success');
+
+    let lastLogTime = Date.now();
+    let measurementCount = 0;
 
     const interval = setInterval(() => {
       const currentImuData = imuDataRef.current;
+      measurementCount++;
       
       const dataPoint = {
         timestamp: Date.now(),
@@ -526,9 +530,18 @@ function App() {
       setImuHistory(prev => {
         const updated = [...prev, dataPoint];
         
+        // Log détaillé pour vérifier la fréquence réelle
+        if (updated.length === 1) {
+          addDebugLog('📊 Première mesure enregistrée', 'info');
+        }
+        
         if (updated.length % 20 === 0) {
+          const now = Date.now();
+          const elapsed = (now - lastLogTime) / 1000;
+          const actualFrequency = (20 / elapsed).toFixed(2);
           const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
-          addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null)`, 'info');
+          addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Fréquence: ${actualFrequency} Hz`, 'info');
+          lastLogTime = now;
         }
         
         return updated;
