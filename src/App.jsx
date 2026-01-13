@@ -508,7 +508,7 @@ function App() {
   useEffect(() => {
     if (!isRunning) return;
 
-    addDebugLog('🔴 Démarrage enregistrement IMU à 2Hz', 'success');
+    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz', 'success');
 
     const interval = setInterval(() => {
       const currentImuData = imuDataRef.current;
@@ -526,20 +526,82 @@ function App() {
       setImuHistory(prev => {
         const updated = [...prev, dataPoint];
         
-        if (updated.length % 10 === 0) {
+        if (updated.length % 20 === 0) {
           const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
           addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null)`, 'info');
         }
         
         return updated;
       });
-    }, 500);
+    }, 250);
 
     return () => {
       clearInterval(interval);
       addDebugLog('🛑 Arrêt enregistrement IMU', 'warning');
     };
   }, [isRunning]);
+
+  // Enregistrement automatique "Conduite non agressive" entre les événements
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const nonAggressiveInterval = setInterval(() => {
+      const currentTime = elapsedTime;
+      const currentTimestamp = Date.now();
+      
+      // Vérifier s'il y a des labels actifs ou en attente
+      const hasActiveLabels = Object.keys(activeLabels).length > 0;
+      const hasPendingLabels = Object.keys(pendingLabels).length > 0;
+      
+      // Si aucun événement en cours, enregistrer "non agressive"
+      if (!hasActiveLabels && !hasPendingLabels && currentTime > 10000) {
+        // Déterminer la période à enregistrer (10 dernières secondes)
+        let startTime10sAgo = currentTime - 10000;
+        let startTimestamp10sAgo = currentTimestamp - 10000;
+        
+        // Vérifier s'il y a un événement récent pour éviter les chevauchements
+        if (recordings.length > 0) {
+          const lastRecording = recordings[recordings.length - 1];
+          const lastEndTime = lastRecording.absoluteEndTime.getTime();
+          const timeSinceLastEvent = currentTimestamp - lastEndTime;
+          
+          // Si le dernier événement était il y a moins de 10s, ajuster
+          if (timeSinceLastEvent < 10000) {
+            startTimestamp10sAgo = lastEndTime;
+            startTime10sAgo = currentTime - timeSinceLastEvent;
+          }
+        }
+        
+        // Ne créer que si on a au moins 5 secondes de données
+        const duration = currentTime - startTime10sAgo;
+        if (duration >= 5000) {
+          const periodImuData = imuHistory.filter(d => 
+            d.timestamp >= startTimestamp10sAgo && d.timestamp <= currentTimestamp
+          );
+          
+          if (periodImuData.length > 0) {
+            const nonZero = periodImuData.filter(d => 
+              d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0
+            ).length;
+            
+            addDebugLog(`🟢 Conduite non agressive (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
+            
+            setRecordings(prev => [...prev, {
+              label: 'Conduite non agressive',
+              startTime: formatTime(startTime10sAgo),
+              endTime: formatTime(currentTime),
+              duration: formatTime(duration),
+              absoluteStartTime: new Date(sessionStartDate.getTime() + startTime10sAgo),
+              absoluteEndTime: new Date(sessionStartDate.getTime() + currentTime),
+              imuData: periodImuData
+            }]);
+          }
+        }
+      }
+    }, 10000); // Vérifier toutes les 10 secondes
+
+    return () => clearInterval(nonAggressiveInterval);
+  }, [isRunning, elapsedTime, activeLabels, pendingLabels, recordings, imuHistory, sessionStartDate]);
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
