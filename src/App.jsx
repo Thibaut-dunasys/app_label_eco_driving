@@ -442,6 +442,17 @@ function App() {
     if (currentPage !== 'labeling') return;
 
     addDebugLog('Page labeling chargée', 'info');
+    
+    // Détecter si on est sur mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const hasMotionSensors = 'DeviceMotionEvent' in window;
+    
+    if (!isMobile) {
+      addDebugLog('⚠️ DESKTOP DÉTECTÉ - Les capteurs IMU ne fonctionnent PAS sur ordinateur ! Utilisez un téléphone !', 'error');
+      setSensorWarning('⚠️ Capteurs IMU indisponibles sur desktop. Testez sur mobile !');
+    } else {
+      addDebugLog('📱 Mobile détecté - Capteurs IMU disponibles', 'success');
+    }
 
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       setNeedsPermission(true);
@@ -575,19 +586,25 @@ function App() {
 
     const checkInterval = setInterval(() => {
       const now = Date.now();
+      const currentElapsed = Date.now() - startTime;
       
-      addDebugLog(`🔍 Check non agressive: activeLabels=${Object.keys(activeLabels).length}, pendingLabels=${Object.keys(pendingLabels).length}, recordings=${recordings.length}`, 'info');
+      // Copier les valeurs des états pour éviter les re-renders
+      const currentActiveLabels = { ...activeLabels };
+      const currentPendingLabels = { ...pendingLabels };
+      const currentRecordings = [...recordings];
+      
+      addDebugLog(`🔍 Check non agressive: active=${Object.keys(currentActiveLabels).length}, pending=${Object.keys(currentPendingLabels).length}, recordings=${currentRecordings.length}`, 'info');
       
       // Vérifier s'il y a des labels actifs ou en attente
-      const hasActive = Object.keys(activeLabels).length > 0;
-      const hasPending = Object.keys(pendingLabels).length > 0;
+      const hasActive = Object.keys(currentActiveLabels).length > 0;
+      const hasPending = Object.keys(currentPendingLabels).length > 0;
       
-      if (!hasActive && !hasPending && elapsedTime > 5000) {
+      if (!hasActive && !hasPending && currentElapsed > 5000) {
         // Trouver le timestamp de fin du dernier enregistrement
         let lastEndTime = sessionStartDate.getTime();
         
-        if (recordings.length > 0) {
-          const lastRec = recordings[recordings.length - 1];
+        if (currentRecordings.length > 0) {
+          const lastRec = currentRecordings[currentRecordings.length - 1];
           lastEndTime = lastRec.absoluteEndTime.getTime();
         }
         
@@ -632,7 +649,7 @@ function App() {
       clearInterval(checkInterval);
       addDebugLog('🛑 Système "non agressive" arrêté', 'warning');
     };
-  }, [isRunning, elapsedTime, activeLabels, pendingLabels, recordings, imuHistory, sessionStartDate]);
+  }, [isRunning, startTime, sessionStartDate]);
 
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -1149,7 +1166,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v4.1-DEBUG ✅
+          v4.2-FIX ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1359,7 +1376,7 @@ function App() {
     >
       {/* VERSION INDICATOR - Pour vérifier le déploiement */}
       <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v4.1-DEBUG ✅
+        v4.2-FIX ✅
       </div>
       
       <div className="max-w-4xl mx-auto">
