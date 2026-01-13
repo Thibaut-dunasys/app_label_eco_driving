@@ -32,6 +32,12 @@ function App() {
   
   const [showDebug, setShowDebug] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
+  
+  // Fréquence d'échantillonnage configurable
+  const [samplingFrequency, setSamplingFrequency] = useState(() => {
+    const saved = localStorage.getItem('samplingFrequency');
+    return saved ? parseInt(saved) : 4; // 4Hz par défaut
+  });
 
   // NOUVEAU : États pour la reconnaissance vocale
   const [voiceSupported, setVoiceSupported] = useState(false);
@@ -67,6 +73,12 @@ function App() {
   useEffect(() => {
     isRunningRef.current = isRunning;
   }, [isRunning]);
+  
+  // Sauvegarder la fréquence sélectionnée
+  useEffect(() => {
+    localStorage.setItem('samplingFrequency', samplingFrequency.toString());
+    addDebugLog(`⚙️ Fréquence changée: ${samplingFrequency}Hz (${1000/samplingFrequency}ms)`, 'info');
+  }, [samplingFrequency]);
 
   const addDebugLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -519,20 +531,21 @@ function App() {
   useEffect(() => {
     if (!isRunning) return;
 
-    addDebugLog('🔴 Démarrage enregistrement IMU à 4Hz direct (devicemotion)', 'success');
+    const intervalMs = 1000 / samplingFrequency; // Calculer l'intervalle en ms
+    addDebugLog(`🔴 Démarrage enregistrement IMU à ${samplingFrequency}Hz (${intervalMs}ms) via devicemotion`, 'success');
 
     let recordCount = 0;
     let startTime = Date.now();
     let lastRecordTime = Date.now();
     let intervalTimes = [];
 
-    // Enregistrer DIRECTEMENT depuis devicemotion au lieu d'utiliser setInterval
+    // Enregistrer DIRECTEMENT depuis devicemotion
     const handleMotionRecording = (event) => {
       const now = Date.now();
       const timeSinceLastRecord = now - lastRecordTime;
       
-      // Enregistrer seulement si au moins 250ms se sont écoulées (4Hz)
-      if (timeSinceLastRecord >= 250) {
+      // Enregistrer seulement si l'intervalle approprié s'est écoulé
+      if (timeSinceLastRecord >= intervalMs) {
         recordCount++;
         intervalTimes.push(timeSinceLastRecord);
         lastRecordTime = now;
@@ -560,15 +573,15 @@ function App() {
             
             if (updated.length === 4) {
               const avgInterval = intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length;
-              addDebugLog(`⏱️ Délai réel devicemotion: ${avgInterval.toFixed(0)}ms (cible: 250ms)`, 'warning');
+              addDebugLog(`⏱️ Délai réel: ${avgInterval.toFixed(0)}ms (cible: ${intervalMs.toFixed(0)}ms)`, 'warning');
             }
             
-            if (updated.length % 20 === 0) {
+            if (updated.length % (samplingFrequency * 5) === 0) { // Log toutes les 5 secondes
               const elapsed = (now - startTime) / 1000;
               const actualFreq = (updated.length / elapsed).toFixed(2);
               const avgInterval = (elapsed * 1000 / updated.length).toFixed(0);
               const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0).length;
-              const recentAvg = intervalTimes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+              const recentAvg = intervalTimes.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, intervalTimes.length);
               addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Freq: ${actualFreq} Hz | Moy: ${avgInterval}ms | Récent: ${recentAvg.toFixed(0)}ms`, 'info');
             }
             
@@ -583,9 +596,9 @@ function App() {
     return () => {
       window.removeEventListener('devicemotion', handleMotionRecording);
       const avgInterval = intervalTimes.length > 0 ? intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length : 0;
-      addDebugLog(`🛑 Arrêt IMU - Intervalle moyen: ${avgInterval.toFixed(0)}ms (${recordCount} enregistrements)`, 'warning');
+      addDebugLog(`🛑 Arrêt IMU - ${samplingFrequency}Hz - Intervalle moyen: ${avgInterval.toFixed(0)}ms (${recordCount} enregistrements)`, 'warning');
     };
-  }, [isRunning]);
+  }, [isRunning, samplingFrequency]);
 
   // PLUS BESOIN de ce système, on va gérer ça différemment
 
@@ -1205,7 +1218,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v5.1-REAL4HZ ✅
+          v5.2-FREQSEL ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1415,7 +1428,7 @@ function App() {
     >
       {/* VERSION INDICATOR - Pour vérifier le déploiement */}
       <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v5.1-REAL4HZ ✅
+        v5.2-FREQSEL ✅
       </div>
       
       <div className="max-w-4xl mx-auto">
@@ -1701,13 +1714,42 @@ function App() {
             <div>
               <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
               <p className="text-xs text-slate-400 font-mono mt-1">
-                {isRunning ? '🔴 Enregistrement continu à 4Hz' : 'Fréquence: 4Hz (0.25s)'}
+                {isRunning ? `🔴 Enregistrement à ${samplingFrequency}Hz` : `Fréquence: ${samplingFrequency}Hz (${(1000/samplingFrequency).toFixed(0)}ms)`}
               </p>
             </div>
             <span className={`text-xs px-3 py-1 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
               {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
             </span>
           </div>
+          
+          {/* Sélecteur de fréquence */}
+          {!isRunning && (
+            <div className="mb-3 p-3 bg-slate-700 rounded-lg border border-slate-600">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                ⚙️ Fréquence d'échantillonnage
+              </label>
+              <div className="grid grid-cols-5 gap-2">
+                {[2, 4, 5, 8, 10].map(freq => (
+                  <button
+                    key={freq}
+                    onClick={() => setSamplingFrequency(freq)}
+                    className={`py-2 px-3 rounded-lg font-mono text-sm font-bold transition-all ${
+                      samplingFrequency === freq
+                        ? 'bg-cyan-500 text-white shadow-lg scale-105'
+                        : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                    }`}
+                  >
+                    {freq}Hz
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400 mt-2 font-mono">
+                Intervalle: {(1000/samplingFrequency).toFixed(0)}ms | 
+                10s = {samplingFrequency * 10} mesures
+              </p>
+            </div>
+          )}
+          
           <div className="grid grid-cols-3 gap-2 mb-2">
             <div className="bg-slate-700 rounded p-3 border border-slate-600">
               <p className="text-slate-400 text-xs font-mono mb-1">Acc X</p>
