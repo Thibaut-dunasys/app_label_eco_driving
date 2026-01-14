@@ -1227,7 +1227,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v5.3-FREQFIX ✅
+          v5.4-DYNHZ ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1398,7 +1398,7 @@ function App() {
                   </div>
                   {rec.imuData && rec.imuData.length > 0 && (
                     <p className="text-xs text-cyan-400 font-mono mt-1">
-                      {rec.imuData.length} mesures IMU (4Hz)
+                      {rec.imuData.length} mesures IMU
                     </p>
                   )}
                 </div>
@@ -1437,7 +1437,7 @@ function App() {
     >
       {/* VERSION INDICATOR - Pour vérifier le déploiement */}
       <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v5.3-FREQFIX ✅
+        v5.4-DYNHZ ✅
       </div>
       
       <div className="max-w-4xl mx-auto">
@@ -2190,7 +2190,7 @@ function App() {
                           {rec.imuData && rec.imuData.length > 0 && (
                             <>
                               <span className="text-slate-500">•</span>
-                              <span className="text-cyan-400">{rec.imuData.length} mesures (4Hz)</span>
+                              <span className="text-cyan-400">{rec.imuData.length} mesures</span>
                             </>
                           )}
                         </div>
@@ -2208,7 +2208,7 @@ function App() {
             <div className="flex items-center gap-2 justify-center">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
               <span className="text-emerald-200 font-mono text-sm">
-                Enregistrement continu : {imuHistory.length} mesures (4Hz)
+                Enregistrement continu : {imuHistory.length} mesures ({samplingFrequency}Hz)
               </span>
             </div>
           </div>
