@@ -532,7 +532,9 @@ function App() {
     if (!isRunning) return;
 
     const intervalMs = 1000 / samplingFrequency; // Calculer l'intervalle en ms
-    addDebugLog(`🔴 Démarrage enregistrement IMU à ${samplingFrequency}Hz (${intervalMs}ms) via devicemotion`, 'success');
+    const minInterval = intervalMs * 0.8; // Marge de 80%
+    
+    addDebugLog(`🔴 Démarrage enregistrement IMU à ${samplingFrequency}Hz (${intervalMs.toFixed(0)}ms, min: ${minInterval.toFixed(0)}ms) via devicemotion`, 'success');
 
     let recordCount = 0;
     let startTime = Date.now();
@@ -545,7 +547,7 @@ function App() {
       const timeSinceLastRecord = now - lastRecordTime;
       
       // Enregistrer seulement si l'intervalle approprié s'est écoulé
-      if (timeSinceLastRecord >= intervalMs) {
+      if (timeSinceLastRecord >= minInterval) {
         recordCount++;
         intervalTimes.push(timeSinceLastRecord);
         lastRecordTime = now;
@@ -573,7 +575,12 @@ function App() {
             
             if (updated.length === 4) {
               const avgInterval = intervalTimes.reduce((a, b) => a + b, 0) / intervalTimes.length;
-              addDebugLog(`⏱️ Délai réel: ${avgInterval.toFixed(0)}ms (cible: ${intervalMs.toFixed(0)}ms)`, 'warning');
+              addDebugLog(`⏱️ 4 premières mesures - Délai moyen: ${avgInterval.toFixed(0)}ms (cible: ${intervalMs.toFixed(0)}ms, min accepté: ${minInterval.toFixed(0)}ms)`, 'warning');
+            }
+            
+            if (updated.length === 10) {
+              const avgInterval = intervalTimes.slice(-10).reduce((a, b) => a + b, 0) / 10;
+              addDebugLog(`⏱️ 10 mesures - Délai moyen: ${avgInterval.toFixed(0)}ms (objectif: ${intervalMs.toFixed(0)}ms)`, 'warning');
             }
             
             if (updated.length % (samplingFrequency * 5) === 0) { // Log toutes les 5 secondes
@@ -582,7 +589,9 @@ function App() {
               const avgInterval = (elapsed * 1000 / updated.length).toFixed(0);
               const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0).length;
               const recentAvg = intervalTimes.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, intervalTimes.length);
-              addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Freq: ${actualFreq} Hz | Moy: ${avgInterval}ms | Récent: ${recentAvg.toFixed(0)}ms`, 'info');
+              const targetFreq = samplingFrequency;
+              const freqRatio = ((parseFloat(actualFreq) / targetFreq) * 100).toFixed(0);
+              addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Cible: ${targetFreq}Hz | Réel: ${actualFreq}Hz (${freqRatio}%) | Moy: ${avgInterval}ms | Récent: ${recentAvg.toFixed(0)}ms`, 'info');
             }
             
             return updated;
@@ -1218,7 +1227,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v5.2-FREQSEL ✅
+          v5.3-FREQFIX ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1428,7 +1437,7 @@ function App() {
     >
       {/* VERSION INDICATOR - Pour vérifier le déploiement */}
       <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v5.2-FREQSEL ✅
+        v5.3-FREQFIX ✅
       </div>
       
       <div className="max-w-4xl mx-auto">
