@@ -532,7 +532,7 @@ function App() {
     if (!isRunning) return;
 
     const intervalMs = 1000 / samplingFrequency; // Calculer l'intervalle en ms
-    const minInterval = intervalMs * 0.8; // Marge de 80%
+    const minInterval = intervalMs * 0.7; // Marge de 70% (plus flexible)
     
     addDebugLog(`🔴 Démarrage enregistrement IMU à ${samplingFrequency}Hz (${intervalMs.toFixed(0)}ms, min: ${minInterval.toFixed(0)}ms) via devicemotion`, 'success');
 
@@ -571,6 +571,10 @@ function App() {
             
             if (updated.length === 1) {
               addDebugLog('📊 Première mesure via devicemotion', 'info');
+            }
+            
+            if (updated.length <= 10) {
+              addDebugLog(`📏 Mesure #${updated.length}: délai depuis dernière = ${timeSinceLastRecord.toFixed(0)}ms (min accepté: ${minInterval.toFixed(0)}ms)`, 'info');
             }
             
             if (updated.length === 4) {
@@ -1227,7 +1231,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v5.4-DYNHZ ✅
+          v5.5-THRESH ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1435,11 +1439,6 @@ function App() {
     <div 
       className="min-h-screen bg-slate-700 p-4 sm:p-8 pb-safe"
     >
-      {/* VERSION INDICATOR - Pour vérifier le déploiement */}
-      <div className="fixed bottom-4 left-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-        v5.4-DYNHZ ✅
-      </div>
-      
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => setShowDebug(!showDebug)}
