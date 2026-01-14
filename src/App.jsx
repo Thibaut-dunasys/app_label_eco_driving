@@ -531,13 +531,12 @@ function App() {
   useEffect(() => {
     if (!isRunning) return;
 
-    // Calculer le ratio d'échantillonnage
-    // devicemotion ~60Hz, donc pour obtenir la fréquence voulue:
-    // 2Hz = 1 sur 30, 4Hz = 1 sur 15
-    const deviceMotionHz = 60; // Fréquence approximative de devicemotion
+    // Sur certains téléphones, devicemotion est à 30Hz au lieu de 60Hz
+    // Donc on divise le ratio par 2
+    const deviceMotionHz = 30; // Fréquence réelle sur mobile
     const samplingRatio = Math.round(deviceMotionHz / samplingFrequency);
     
-    addDebugLog(`🔴 Démarrage enregistrement IMU à ${samplingFrequency}Hz (ratio: 1/${samplingRatio} événements)`, 'success');
+    addDebugLog(`🔴 Démarrage enregistrement IMU à ${samplingFrequency}Hz (ratio: 1/${samplingRatio} événements, base ${deviceMotionHz}Hz)`, 'success');
 
     let eventCounter = 0;
     let recordCount = 0;
@@ -1234,7 +1233,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.0-COUNTER ✅
+          v6.1-FIX2X ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
