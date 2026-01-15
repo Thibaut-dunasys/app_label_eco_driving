@@ -1133,7 +1133,7 @@ function App() {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
     
-    const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+    const headers = ['Label', 'Date Heure debut', 'Date Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
     
     const csvContent = [
       headers.join(','),
@@ -1165,7 +1165,7 @@ function App() {
           ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
           : '[]';
         
-        return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+        return `"${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -1197,7 +1197,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['Label', 'Heure debut', 'Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      const headers = ['Label', 'Date Heure debut', 'Date Heure fin', 'Duree (s)', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -1229,7 +1229,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(row.label)}","${formatTimeOnly(row.absoluteStartTime)}","${formatTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1285,7 +1285,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.4-SPLASH ✅
+          v6.5-CSVDT ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
