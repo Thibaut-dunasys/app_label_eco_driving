@@ -3,6 +3,7 @@ import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone,
 import './App.css';
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('home');
   const [sessions, setSessions] = useState([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -80,6 +81,15 @@ function App() {
     localStorage.setItem('samplingFrequency', samplingFrequency.toString());
     addDebugLog(`⚙️ Fréquence changée: ${samplingFrequency}Hz (${1000/samplingFrequency}ms)`, 'info');
   }, [samplingFrequency]);
+
+  // Splash screen loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000); // 2 secondes
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   const addDebugLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -675,6 +685,17 @@ function App() {
     });
   };
 
+  const formatDateTimeOnly = (date) => {
+    return new Date(date).toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
   const formatDateTimeForFilename = (date) => {
     const d = new Date(date);
     const year = d.getFullYear();
@@ -1264,7 +1285,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.3-VHELP ✅
+          v6.4-SPLASH ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1427,14 +1448,16 @@ function App() {
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {selectedSession.recordings.map((rec, idx) => (
                 <div key={idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600">
-                  <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+                  <div className="flex flex-col gap-2">
                     <span className="font-medium text-white text-sm">{rec.label}</span>
-                    <span className="text-xs text-slate-300 font-mono">
-                      {rec.startTime} → {rec.endTime}
-                    </span>
+                    <div className="text-xs text-slate-300 font-mono space-y-1">
+                      <div>📅 Début: {formatDateTimeOnly(rec.absoluteStartTime)}</div>
+                      <div>📅 Fin: {formatDateTimeOnly(rec.absoluteEndTime)}</div>
+                      <div className="text-cyan-400">⏱️ Durée: {rec.duration}</div>
+                    </div>
                   </div>
                   {rec.imuData && rec.imuData.length > 0 && (
-                    <p className="text-xs text-cyan-400 font-mono mt-1">
+                    <p className="text-xs text-cyan-400 font-mono mt-2">
                       {rec.imuData.length} mesures IMU
                     </p>
                   )}
@@ -1462,6 +1485,26 @@ function App() {
                 Télécharger CSV
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Splash screen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mb-8 animate-bounce">
+            <Car size={120} className="text-cyan-400 mx-auto drop-shadow-2xl" strokeWidth={1.5} />
+          </div>
+          <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">
+            Labelisation
+          </h1>
+          <div className="flex items-center justify-center gap-2 text-slate-400">
+            <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+            <p className="text-lg">Chargement...</p>
           </div>
         </div>
       </div>
@@ -2288,16 +2331,18 @@ function App() {
                       <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-white text-sm mb-1">{rec.label}</p>
-                        <div className="flex flex-wrap gap-2 text-xs text-slate-400 font-mono">
-                          <span>{rec.startTime} → {rec.endTime}</span>
-                          <span className="text-slate-500">•</span>
-                          <span>Durée: {rec.duration}</span>
-                          {rec.imuData && rec.imuData.length > 0 && (
-                            <>
-                              <span className="text-slate-500">•</span>
-                              <span className="text-cyan-400">{rec.imuData.length} mesures</span>
-                            </>
-                          )}
+                        <div className="flex flex-col gap-1 text-xs text-slate-400 font-mono">
+                          <div>📅 Début: {formatDateTimeOnly(rec.absoluteStartTime)}</div>
+                          <div>📅 Fin: {formatDateTimeOnly(rec.absoluteEndTime)}</div>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            <span className="text-cyan-400">⏱️ Durée: {rec.duration}</span>
+                            {rec.imuData && rec.imuData.length > 0 && (
+                              <>
+                                <span className="text-slate-500">•</span>
+                                <span className="text-cyan-400">{rec.imuData.length} mesures</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
