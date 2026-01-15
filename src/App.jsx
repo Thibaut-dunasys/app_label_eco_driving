@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -19,6 +19,9 @@ function App() {
   const [imuPermission, setImuPermission] = useState(false);
   const [imuHistory, setImuHistory] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('idle');
+  const [githubToken, setGithubToken] = useState(() => localStorage.getItem('githubToken') || '');
+  const [githubRepo, setGithubRepo] = useState(() => localStorage.getItem('githubRepo') || '');
+  const [githubBranch, setGithubBranch] = useState(() => localStorage.getItem('githubBranch') || 'main');
   const [needsPermission, setNeedsPermission] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [sensorWarning, setSensorWarning] = useState('');
@@ -89,6 +92,36 @@ function App() {
     }, 2000); // 2 secondes
     
     return () => clearTimeout(timer);
+  }, []);
+
+  // Charger la configuration GitHub depuis le fichier
+  useEffect(() => {
+    const loadGithubConfig = async () => {
+      try {
+        const response = await fetch('/github-config.json');
+        if (response.ok) {
+          const config = await response.json();
+          if (config.githubRepo && config.githubRepo !== 'username/repository') {
+            setGithubRepo(config.githubRepo);
+            localStorage.setItem('githubRepo', config.githubRepo);
+          }
+          if (config.githubToken && config.githubToken !== 'ghp_your_token_here') {
+            setGithubToken(config.githubToken);
+            localStorage.setItem('githubToken', config.githubToken);
+          }
+          if (config.githubBranch) {
+            setGithubBranch(config.githubBranch);
+            localStorage.setItem('githubBranch', config.githubBranch);
+          }
+          addDebugLog('✅ Configuration GitHub chargée depuis fichier', 'success');
+        }
+      } catch (error) {
+        // Pas de fichier de config, on utilise localStorage
+        addDebugLog('ℹ️ Pas de fichier de config GitHub, utilisation du localStorage', 'info');
+      }
+    };
+    
+    loadGithubConfig();
   }, []);
 
   const addDebugLog = (message, type = 'info') => {
@@ -1268,6 +1301,121 @@ function App() {
     }
   };
 
+  const uploadToGitHub = async (data, session) => {
+    if (!githubToken || !githubRepo) {
+      alert('⚠️ Configuration GitHub manquante!\n\nVeuillez configurer votre token et repository GitHub dans les paramètres.');
+      return;
+    }
+
+    setUploadStatus('uploading');
+    addDebugLog('📤 Upload vers GitHub...', 'info');
+    
+    try {
+      const removeAccents = (str) => {
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      };
+      
+      const headers = ['Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      
+      const csvContent = [
+        headers.join(','),
+        ...data.map(row => {
+          const durationParts = row.duration.split(':');
+          let durationSeconds = 0;
+          if (durationParts.length === 2) {
+            const [minutes, secondsWithMs] = durationParts;
+            const [seconds, ms] = secondsWithMs.split('.');
+            durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
+          }
+          
+          const axList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.ax).join(',') + ']'
+            : '[]';
+          const ayList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.ay).join(',') + ']'
+            : '[]';
+          const azList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.az).join(',') + ']'
+            : '[]';
+          const gxList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.gx).join(',') + ']'
+            : '[]';
+          const gyList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.gy).join(',') + ']'
+            : '[]';
+          const gzList = row.imuData && row.imuData.length > 0 
+            ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
+            : '[]';
+          
+          return `"${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+        })
+      ].join('\n');
+
+      const base64CSV = btoa(unescape(encodeURIComponent(csvContent)));
+      
+      const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
+      const filename = `labelisation${carNamePart}_${formatDateTimeForFilename(session.startDate)}.csv`;
+      const filePath = `data/${filename}`;
+
+      // GitHub API: Create or update file
+      const url = `https://api.github.com/repos/${githubRepo}/contents/${filePath}`;
+      
+      // Check if file exists first
+      let sha = null;
+      try {
+        const checkResponse = await fetch(url, {
+          headers: {
+            'Authorization': `token ${githubToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+        if (checkResponse.ok) {
+          const fileData = await checkResponse.json();
+          sha = fileData.sha;
+        }
+      } catch (e) {
+        // File doesn't exist, that's ok
+      }
+
+      const body = {
+        message: `Add driving data: ${filename}`,
+        content: base64CSV,
+        branch: githubBranch
+      };
+
+      if (sha) {
+        body.sha = sha;
+      }
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${githubToken}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        addDebugLog(`✅ Upload GitHub réussi: ${filename}`, 'success');
+        addDebugLog(`🔗 ${result.content.html_url}`, 'info');
+        setUploadStatus('success');
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      } else {
+        const error = await response.json();
+        throw new Error(error.message || 'GitHub upload failed');
+      }
+    } catch (error) {
+      console.error('Erreur upload GitHub:', error);
+      addDebugLog(`❌ Erreur upload GitHub: ${error.message}`, 'error');
+      setUploadStatus('error');
+      downloadCSV(data, session);
+      setTimeout(() => setUploadStatus('idle'), 3000);
+    }
+  };
+
   const deleteSession = (sessionId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
       const updatedSessions = sessions.filter(s => s.id !== sessionId);
@@ -1285,7 +1433,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.6-ENHEAD ✅
+          v6.7-GITHUB ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1476,6 +1624,17 @@ function App() {
                  uploadStatus === 'success' ? 'Envoyé !' :
                  uploadStatus === 'error' ? 'Erreur' :
                  'Envoyer Drive'}
+              </button>
+              <button
+                onClick={() => uploadToGitHub(selectedSession.recordings, selectedSession)}
+                disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
+                className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Github size={18} />
+                {uploadStatus === 'uploading' ? 'Envoi...' : 
+                 uploadStatus === 'success' ? 'Envoyé !' :
+                 uploadStatus === 'error' ? 'Erreur' :
+                 'Envoyer GitHub'}
               </button>
               <button
                 onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
@@ -1907,6 +2066,60 @@ function App() {
             </div>
           )}
           
+          {/* Configuration GitHub */}
+          {!isRunning && (
+            <div className="mb-3 p-3 bg-slate-700 rounded-lg border border-slate-600">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                <Github size={16} className="inline mr-1" />
+                Configuration GitHub
+              </label>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Repository (owner/repo)</label>
+                  <input
+                    type="text"
+                    value={githubRepo}
+                    onChange={(e) => {
+                      setGithubRepo(e.target.value);
+                      localStorage.setItem('githubRepo', e.target.value);
+                    }}
+                    placeholder="username/repository"
+                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Token GitHub</label>
+                  <input
+                    type="password"
+                    value={githubToken}
+                    onChange={(e) => {
+                      setGithubToken(e.target.value);
+                      localStorage.setItem('githubToken', e.target.value);
+                    }}
+                    placeholder="ghp_xxxxxxxxxxxx"
+                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Branche</label>
+                  <input
+                    type="text"
+                    value={githubBranch}
+                    onChange={(e) => {
+                      setGithubBranch(e.target.value);
+                      localStorage.setItem('githubBranch', e.target.value);
+                    }}
+                    placeholder="main"
+                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  💡 Les fichiers seront sauvegardés dans <span className="font-mono text-cyan-400">data/</span>
+                </p>
+              </div>
+            </div>
+          )}
+          
           <div className="grid grid-cols-3 gap-2 mb-2">
             <div className="bg-slate-700 rounded p-3 border border-slate-600">
               <p className="text-slate-400 text-xs font-mono mb-1">Acc X</p>
@@ -2036,6 +2249,14 @@ function App() {
                   >
                     <Download size={20} />
                     {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
+                  </button>
+                  <button
+                    onClick={() => uploadToGitHub(currentSessionData.recordings, currentSessionData)}
+                    disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
+                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
+                  >
+                    <Github size={20} />
+                    {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer GitHub'}
                   </button>
                   <button
                     onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
