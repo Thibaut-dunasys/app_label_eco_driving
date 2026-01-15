@@ -1,4 +1,3 @@
-//test variable
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github } from 'lucide-react';
 import './App.css';
@@ -95,9 +94,27 @@ function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Charger la configuration GitHub depuis le fichier
+  // Charger la configuration GitHub depuis le fichier OU les variables d'environnement
   useEffect(() => {
     const loadGithubConfig = async () => {
+      // Priorité 1 : Variables d'environnement Vercel
+      const envRepo = process.env.REACT_APP_GITHUB_REPO;
+      const envToken = process.env.REACT_APP_GITHUB_TOKEN;
+      const envBranch = process.env.REACT_APP_GITHUB_BRANCH;
+      
+      if (envRepo && envToken) {
+        setGithubRepo(envRepo);
+        setGithubToken(envToken);
+        setGithubBranch(envBranch || 'main');
+        localStorage.setItem('githubRepo', envRepo);
+        localStorage.setItem('githubToken', envToken);
+        localStorage.setItem('githubBranch', envBranch || 'main');
+        addDebugLog('✅ Configuration GitHub chargée depuis variables d\'environnement', 'success');
+        addDebugLog(`📦 Repository: ${envRepo}`, 'info');
+        return;
+      }
+      
+      // Priorité 2 : Fichier github-config.json
       try {
         const response = await fetch('/github-config.json');
         if (response.ok) {
@@ -115,10 +132,23 @@ function App() {
             localStorage.setItem('githubBranch', config.githubBranch);
           }
           addDebugLog('✅ Configuration GitHub chargée depuis fichier', 'success');
+          addDebugLog(`📦 Repository: ${config.githubRepo}`, 'info');
+          return;
         }
       } catch (error) {
-        // Pas de fichier de config, on utilise localStorage
-        addDebugLog('ℹ️ Pas de fichier de config GitHub, utilisation du localStorage', 'info');
+        // Pas de fichier, on continue
+      }
+      
+      // Priorité 3 : localStorage (configuration manuelle via interface)
+      const storedRepo = localStorage.getItem('githubRepo');
+      const storedToken = localStorage.getItem('githubToken');
+      
+      if (storedRepo && storedToken) {
+        addDebugLog('ℹ️ Configuration GitHub chargée depuis localStorage', 'info');
+        addDebugLog(`📦 Repository: ${storedRepo}`, 'info');
+      } else {
+        addDebugLog('⚠️ Aucune configuration GitHub trouvée', 'error');
+        addDebugLog('💡 Configurez via variables Vercel ou interface', 'info');
       }
     };
     
@@ -1303,13 +1333,18 @@ function App() {
   };
 
   const uploadToGitHub = async (data, session) => {
+    addDebugLog('🐙 Tentative d\'upload GitHub...', 'info');
+    addDebugLog(`📦 Repository: ${githubRepo || 'NON DÉFINI'}`, 'info');
+    addDebugLog(`🔑 Token: ${githubToken ? 'PRÉSENT' : 'MANQUANT'}`, githubToken ? 'success' : 'error');
+    
     if (!githubToken || !githubRepo) {
-      alert('⚠️ Configuration GitHub manquante!\n\nVeuillez configurer votre token et repository GitHub dans les paramètres.');
+      addDebugLog('❌ Configuration GitHub manquante!', 'error');
+      alert('⚠️ Configuration GitHub manquante!\n\nRepository: ' + (githubRepo || 'NON DÉFINI') + '\nToken: ' + (githubToken ? 'Présent' : 'MANQUANT') + '\n\nVérifiez les variables Vercel ou le fichier de config.');
       return;
     }
 
     setUploadStatus('uploading');
-    addDebugLog('📤 Upload vers GitHub...', 'info');
+    addDebugLog('📤 Upload vers GitHub en cours...', 'info');
     
     try {
       const removeAccents = (str) => {
@@ -1358,12 +1393,17 @@ function App() {
       const filename = `labelisation${carNamePart}_${formatDateTimeForFilename(session.startDate)}.csv`;
       const filePath = `data/${filename}`;
 
+      addDebugLog(`📄 Fichier: ${filename}`, 'info');
+      
       // GitHub API: Create or update file
       const url = `https://api.github.com/repos/${githubRepo}/contents/${filePath}`;
+      
+      addDebugLog(`🔗 URL: ${url}`, 'info');
       
       // Check if file exists first
       let sha = null;
       try {
+        addDebugLog('🔍 Vérification si le fichier existe...', 'info');
         const checkResponse = await fetch(url, {
           headers: {
             'Authorization': `token ${githubToken}`,
@@ -1373,9 +1413,12 @@ function App() {
         if (checkResponse.ok) {
           const fileData = await checkResponse.json();
           sha = fileData.sha;
+          addDebugLog('📝 Fichier existe, sera mis à jour', 'info');
+        } else {
+          addDebugLog('📝 Nouveau fichier, sera créé', 'info');
         }
       } catch (e) {
-        // File doesn't exist, that's ok
+        addDebugLog('📝 Nouveau fichier (erreur check normale)', 'info');
       }
 
       const body = {
@@ -1388,6 +1431,8 @@ function App() {
         body.sha = sha;
       }
 
+      addDebugLog('📡 Envoi vers GitHub API...', 'info');
+      
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
@@ -1398,20 +1443,31 @@ function App() {
         body: JSON.stringify(body)
       });
 
+      addDebugLog(`📊 Réponse HTTP: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
       if (response.ok) {
         const result = await response.json();
         addDebugLog(`✅ Upload GitHub réussi: ${filename}`, 'success');
-        addDebugLog(`🔗 ${result.content.html_url}`, 'info');
+        addDebugLog(`🔗 Lien: ${result.content.html_url}`, 'info');
         setUploadStatus('success');
+        alert('✅ Fichier envoyé sur GitHub avec succès!\n\nFichier: ' + filename + '\n\nVérifiez sur GitHub dans le dossier data/');
         setTimeout(() => setUploadStatus('idle'), 3000);
       } else {
-        const error = await response.json();
-        throw new Error(error.message || 'GitHub upload failed');
+        const errorData = await response.json();
+        addDebugLog(`❌ Erreur GitHub: ${errorData.message}`, 'error');
+        if (errorData.errors) {
+          errorData.errors.forEach(err => {
+            addDebugLog(`  → ${err.message || JSON.stringify(err)}`, 'error');
+          });
+        }
+        throw new Error(errorData.message || 'GitHub upload failed');
       }
     } catch (error) {
       console.error('Erreur upload GitHub:', error);
       addDebugLog(`❌ Erreur upload GitHub: ${error.message}`, 'error');
+      addDebugLog(`💡 Stack: ${error.stack?.substring(0, 200)}`, 'error');
       setUploadStatus('error');
+      alert('❌ Erreur d\'envoi GitHub!\n\n' + error.message + '\n\nLe CSV sera téléchargé localement à la place.');
       downloadCSV(data, session);
       setTimeout(() => setUploadStatus('idle'), 3000);
     }
