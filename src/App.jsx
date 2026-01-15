@@ -42,6 +42,7 @@ function App() {
   // NOUVEAU : États pour la reconnaissance vocale
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
+  const [showVoiceHelp, setShowVoiceHelp] = useState(false);
   const recognitionRef = useRef(null);
 
   // Wake Lock pour empêcher la mise en veille
@@ -247,12 +248,42 @@ function App() {
   }, [isRunning, wakeLockSupported, wakeLock]);
 
   const labels = [
-    { id: 'right-turn', name: 'Virage agressif à droite', color: 'bg-slate-600', keywords: ['virage droit', 'virage à droite', 'virage droite', 'tourne droite'] },
-    { id: 'left-turn', name: 'Virage agressif à gauche', color: 'bg-gray-500', keywords: ['virage gauche', 'virage à gauche', 'tourne gauche'] },
-    { id: 'right-lane', name: 'Changement de voie agressif à droite', color: 'bg-gray-600', keywords: ['voie droite', 'voie à droite', 'changement droite', 'changement de voie droite'] },
-    { id: 'left-lane', name: 'Changement de voie agressif à gauche', color: 'bg-zinc-500', keywords: ['voie gauche', 'voie à gauche', 'changement gauche', 'changement de voie gauche'] },
-    { id: 'braking', name: 'Freinage agressif', color: 'bg-zinc-600', keywords: ['freinage', 'frein', 'freine', 'coup de frein'] },
-    { id: 'acceleration', name: 'Accélération agressive', color: 'bg-neutral-600', keywords: ['accélération', 'accélère', 'accélérer', 'accélération agressive'] }
+    { 
+      id: 'braking', 
+      name: 'Freinage', 
+      color: 'bg-zinc-600', 
+      keywords: ['freinage', 'frein', 'freinage brusque', 'freinage agressif', 'freinage fort']
+    },
+    { 
+      id: 'acceleration', 
+      name: 'Accélération', 
+      color: 'bg-neutral-600', 
+      keywords: ['accélération', 'accélération brusque', 'accélération agressive']
+    },
+    { 
+      id: 'left-turn', 
+      name: 'Virage serré à gauche', 
+      color: 'bg-gray-500', 
+      keywords: ['virage serré à gauche', 'virage serré gauche', 'virage gauche', 'virage brusque gauche', 'virage brusque à gauche', 'virage agressif à gauche', 'virage agressif gauche']
+    },
+    { 
+      id: 'right-turn', 
+      name: 'Virage serré à droite', 
+      color: 'bg-slate-600', 
+      keywords: ['virage serré à droite', 'virage serré droite', 'virage droite', 'virage brusque droite', 'virage brusque à droite', 'virage agressif à droite', 'virage agressif droite']
+    },
+    { 
+      id: 'left-lane', 
+      name: 'Changement de voie à gauche', 
+      color: 'bg-zinc-500', 
+      keywords: ['changement de voie à gauche', 'changement de voie gauche', 'changement de voix gauche', 'changement de voix à gauche', 'changement gauche', 'changement à gauche']
+    },
+    { 
+      id: 'right-lane', 
+      name: 'Changement de voie à droite', 
+      color: 'bg-gray-600', 
+      keywords: ['changement de voie à droite', 'changement de voie droite', 'changement de voix droite', 'changement de voix à droite', 'changement droite', 'changement à droite']
+    }
   ];
 
   // NOUVEAU : Initialiser la reconnaissance vocale
@@ -1233,7 +1264,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.1-FIX2X ✅
+          v6.3-VHELP ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1659,18 +1690,79 @@ function App() {
                   : '📌 Appuyez 1× au début, 1× à la fin de l\'événement'}
             </p>
           )}
-          {isRunning && mode === 'vocal' && (
-            <div className="mt-3 bg-green-900 border border-green-600 rounded-lg p-3">
-              <div className="flex items-center gap-2 justify-center">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-green-200 text-xs font-semibold">
-                  🎤 Écoute en cours... Dictez les labels
-                </span>
+          
+          {/* Aide vocale - Mots-clés à dire */}
+          {!isRunning && mode === 'vocal' && (
+            <div className="mt-3 bg-slate-700 border border-slate-500 rounded-lg p-4">
+              <h3 className="text-white font-semibold text-sm mb-3 text-center">
+                🎤 Phrases à dire pour chaque label
+              </h3>
+              <div className="space-y-2 text-xs">
+                {labels.map(label => (
+                  <div key={label.id} className="bg-slate-800 rounded p-2 border border-slate-600">
+                    <div className="text-cyan-400 font-semibold mb-1">
+                      {label.name}
+                    </div>
+                    <div className="text-slate-300 text-[11px] leading-relaxed">
+                      {label.keywords.map((kw, idx) => (
+                        <span key={idx}>
+                          "{kw}"{idx < label.keywords.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {lastTranscript && (
-                <p className="text-center text-xs text-green-300 mt-2 font-mono">
-                  Dernier: "{lastTranscript}"
-                </p>
+              <p className="text-slate-400 text-[10px] mt-3 text-center italic">
+                💡 Dites n'importe quelle phrase ci-dessus pour activer le label
+              </p>
+            </div>
+          )}
+          
+          {isRunning && mode === 'vocal' && (
+            <div className="mt-3 space-y-2">
+              <div className="bg-green-900 border border-green-600 rounded-lg p-3">
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-green-200 text-xs font-semibold">
+                    🎤 Écoute en cours... Dictez les labels
+                  </span>
+                </div>
+                {lastTranscript && (
+                  <p className="text-center text-xs text-green-300 mt-2 font-mono">
+                    Dernier: "{lastTranscript}"
+                  </p>
+                )}
+              </div>
+              
+              {/* Bouton pour afficher/masquer l'aide */}
+              <button
+                onClick={() => setShowVoiceHelp(!showVoiceHelp)}
+                className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-500 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all active:scale-95"
+              >
+                {showVoiceHelp ? '▼ Masquer l\'aide vocale' : '▶ Voir les phrases à dire'}
+              </button>
+              
+              {/* Panneau d'aide vocale (collapsible) */}
+              {showVoiceHelp && (
+                <div className="bg-slate-700 border border-slate-500 rounded-lg p-3">
+                  <div className="space-y-2 text-xs max-h-64 overflow-y-auto">
+                    {labels.map(label => (
+                      <div key={label.id} className="bg-slate-800 rounded p-2 border border-slate-600">
+                        <div className="text-cyan-400 font-semibold mb-1 text-[11px]">
+                          {label.name}
+                        </div>
+                        <div className="text-slate-300 text-[10px] leading-relaxed">
+                          {label.keywords.map((kw, idx) => (
+                            <span key={idx}>
+                              "{kw}"{idx < label.keywords.length - 1 ? ', ' : ''}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
