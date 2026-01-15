@@ -1,3 +1,4 @@
+//test variable
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github } from 'lucide-react';
 import './App.css';
