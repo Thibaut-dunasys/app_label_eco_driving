@@ -13,6 +13,7 @@ function App() {
   const [sessionStartDate, setSessionStartDate] = useState(null);
   const [activeLabels, setActiveLabels] = useState({});
   const [recordings, setRecordings] = useState([]);
+  const [editingId, setEditingId] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [currentSessionData, setCurrentSessionData] = useState(null);
@@ -848,6 +849,12 @@ function App() {
     }
   };
 
+  const editLabel = (id, newLabelId) => {
+    const newLabel = labels.find(l => l.id === newLabelId);
+    setRecordings(prev => prev.map(r => r.id === id ? {...r, label: newLabel.name} : r));
+    setEditingId(null);
+  };
+
   const toggleLabel = (labelId) => {
     if (!isRunning) return;
 
@@ -875,6 +882,7 @@ function App() {
         addDebugLog(`📝 Init (mode ${mode}): ${initImuData.length} mesures`, 'info');
         
         newRecordings.push({
+          id: Date.now(),
           label: 'Initialisation',
           startTime: formatTime(initStartTime),
           endTime: formatTime(Math.max(0, initEndTime)),
@@ -929,6 +937,7 @@ function App() {
         addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
         
         setRecordings(prev => [...prev, {
+          id: Date.now() + Math.random(),
           label: labelName,
           startTime: formatTime(Math.max(0, startTime5sBefore)),
           endTime: formatTime(finalTime),
@@ -1491,7 +1500,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.7-GITHUB ✅
+          v6.10-EDIT ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2604,12 +2613,33 @@ function App() {
             </div>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {recordings.map((rec, idx) => (
-                <div key={idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600 animate-fadeIn">
+                <div key={rec.id || idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600 animate-fadeIn">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2 flex-1">
                       <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white text-sm mb-1">{rec.label}</p>
+                        {editingId === rec.id ? (
+                          <div className="mb-2">
+                            <p className="text-xs text-slate-400 mb-2">Choisir le label :</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {labels.map(l => (
+                                <button key={l.id} onClick={() => editLabel(rec.id, l.id)} className={`${l.color} text-white px-2 py-1 rounded text-xs`}>
+                                  {l.name}
+                                </button>
+                              ))}
+                            </div>
+                            <button onClick={() => setEditingId(null)} className="text-xs text-slate-400 mt-1">Annuler</button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium text-white text-sm">{rec.label}</p>
+                            {isRunning && rec.label !== 'Initialisation' && rec.id && (
+                              <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
+                                <Edit2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        )}
                         <div className="flex flex-col gap-1 text-xs text-slate-400 font-mono">
                           <div>📅 Début: {formatDateTimeOnly(rec.absoluteStartTime)}</div>
                           <div>📅 Fin: {formatDateTimeOnly(rec.absoluteEndTime)}</div>
