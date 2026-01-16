@@ -1,6 +1,46 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github, ChevronDown } from 'lucide-react';
 import './App.css';
+
+// Labels définis en dehors du composant (ne changent jamais)
+const LABELS = [
+  { 
+    id: 'braking', 
+    name: 'Freinage', 
+    color: 'bg-zinc-600', 
+    keywords: ['freinage', 'frein', 'freinage brusque', 'freinage agressif', 'freinage fort']
+  },
+  { 
+    id: 'acceleration', 
+    name: 'Accélération', 
+    color: 'bg-neutral-600', 
+    keywords: ['accélération', 'accélération brusque', 'accélération agressive']
+  },
+  { 
+    id: 'left-turn', 
+    name: 'Virage serré à gauche', 
+    color: 'bg-gray-500', 
+    keywords: ['virage serré à gauche', 'virage serré gauche', 'virage gauche', 'virage brusque gauche', 'virage brusque à gauche', 'virage agressif à gauche', 'virage agressif gauche']
+  },
+  { 
+    id: 'right-turn', 
+    name: 'Virage serré à droite', 
+    color: 'bg-slate-600', 
+    keywords: ['virage serré à droite', 'virage serré droite', 'virage droite', 'virage brusque droite', 'virage brusque à droite', 'virage agressif à droite', 'virage agressif droite']
+  },
+  { 
+    id: 'left-lane', 
+    name: 'Changement de voie à gauche', 
+    color: 'bg-zinc-500', 
+    keywords: ['changement de voie à gauche', 'changement de voie gauche', 'changement de voix gauche', 'changement de voix à gauche', 'changement gauche', 'changement à gauche']
+  },
+  { 
+    id: 'right-lane', 
+    name: 'Changement de voie à droite', 
+    color: 'bg-gray-600', 
+    keywords: ['changement de voie à droite', 'changement de voie droite', 'changement de voix droite', 'changement de voix à droite', 'changement droite', 'changement à droite']
+  }
+];
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -156,10 +196,10 @@ function App() {
     loadGithubConfig();
   }, []);
 
-  const addDebugLog = (message, type = 'info') => {
+  const addDebugLog = useCallback((message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setDebugLogs(prev => [...prev.slice(-20), { time: timestamp, message, type }]);
-  };
+  }, []);
 
   // Fonction pour jouer un beep de confirmation
   const playBeep = () => {
@@ -185,7 +225,7 @@ function App() {
   };
 
   // Fonctions Wake Lock pour empêcher la mise en veille
-  const requestWakeLock = async () => {
+  const requestWakeLock = useCallback(async () => {
     try {
       if ('wakeLock' in navigator) {
         const lock = await navigator.wakeLock.request('screen');
@@ -200,9 +240,9 @@ function App() {
     } catch (err) {
       addDebugLog(`❌ Erreur Wake Lock: ${err.message}`, 'error');
     }
-  };
+  }, [addDebugLog]);
 
-  const releaseWakeLock = async () => {
+  const releaseWakeLock = useCallback(async () => {
     if (wakeLock) {
       try {
         await wakeLock.release();
@@ -212,7 +252,7 @@ function App() {
         addDebugLog(`⚠️ Erreur libération Wake Lock: ${err.message}`, 'warning');
       }
     }
-  };
+  }, [wakeLock, addDebugLog]);
 
   // Fonctions Pull-to-Refresh
   const handleTouchStart = (e) => {
@@ -320,46 +360,8 @@ function App() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isRunning, wakeLockSupported, wakeLock]);
+  }, [isRunning, wakeLockSupported, wakeLock, requestWakeLock]);
 
-  const labels = [
-    { 
-      id: 'braking', 
-      name: 'Freinage', 
-      color: 'bg-zinc-600', 
-      keywords: ['freinage', 'frein', 'freinage brusque', 'freinage agressif', 'freinage fort']
-    },
-    { 
-      id: 'acceleration', 
-      name: 'Accélération', 
-      color: 'bg-neutral-600', 
-      keywords: ['accélération', 'accélération brusque', 'accélération agressive']
-    },
-    { 
-      id: 'left-turn', 
-      name: 'Virage serré à gauche', 
-      color: 'bg-gray-500', 
-      keywords: ['virage serré à gauche', 'virage serré gauche', 'virage gauche', 'virage brusque gauche', 'virage brusque à gauche', 'virage agressif à gauche', 'virage agressif gauche']
-    },
-    { 
-      id: 'right-turn', 
-      name: 'Virage serré à droite', 
-      color: 'bg-slate-600', 
-      keywords: ['virage serré à droite', 'virage serré droite', 'virage droite', 'virage brusque droite', 'virage brusque à droite', 'virage agressif à droite', 'virage agressif droite']
-    },
-    { 
-      id: 'left-lane', 
-      name: 'Changement de voie à gauche', 
-      color: 'bg-zinc-500', 
-      keywords: ['changement de voie à gauche', 'changement de voie gauche', 'changement de voix gauche', 'changement de voix à gauche', 'changement gauche', 'changement à gauche']
-    },
-    { 
-      id: 'right-lane', 
-      name: 'Changement de voie à droite', 
-      color: 'bg-gray-600', 
-      keywords: ['changement de voie à droite', 'changement de voie droite', 'changement de voix droite', 'changement de voix à droite', 'changement droite', 'changement à droite']
-    }
-  ];
 
   // NOUVEAU : Initialiser la reconnaissance vocale
   useEffect(() => {
@@ -389,7 +391,7 @@ function App() {
         }
         
         // Chercher le label correspondant
-        const matchedLabel = labels.find(label => 
+        const matchedLabel = LABELS.find(label => 
           label.keywords.some(keyword => transcript.includes(keyword))
         );
         
@@ -565,8 +567,13 @@ function App() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const hasMotionSensors = 'DeviceMotionEvent' in window;
     
-    if (!isMobile) {
-      addDebugLog('⚠️ DESKTOP DÉTECTÉ - Les capteurs IMU ne fonctionnent PAS sur ordinateur ! Utilisez un téléphone !', 'error');
+    if (!isMobile || !hasMotionSensors) {
+      if (!isMobile) {
+        addDebugLog('⚠️ DESKTOP DÉTECTÉ - Les capteurs IMU ne fonctionnent PAS sur ordinateur ! Utilisez un téléphone !', 'error');
+      }
+      if (!hasMotionSensors) {
+        addDebugLog('⚠️ DeviceMotionEvent non disponible', 'error');
+      }
       setSensorWarning('⚠️ Capteurs IMU indisponibles sur desktop. Testez sur mobile !');
     } else {
       addDebugLog('📱 Mobile détecté - Capteurs IMU disponibles', 'success');
@@ -700,7 +707,6 @@ function App() {
               const actualFreq = (updated.length / elapsed).toFixed(2);
               const avgInterval = (elapsed * 1000 / updated.length).toFixed(0);
               const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0).length;
-              const recentAvg = intervalTimes.slice(-logInterval).reduce((a, b) => a + b, 0) / logInterval;
               const freqRatio = ((parseFloat(actualFreq) / samplingFrequency) * 100).toFixed(0);
               addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Cible: ${samplingFrequency}Hz | Réel: ${actualFreq}Hz (${freqRatio}%) | Moy: ${avgInterval}ms`, 'info');
             }
@@ -723,13 +729,13 @@ function App() {
 
   // PLUS BESOIN de ce système, on va gérer ça différemment
 
-  const formatTime = (ms) => {
+  const formatTime = useCallback((ms) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     const milliseconds = Math.floor((ms % 1000) / 10);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
   const formatDateTime = (date) => {
     return new Date(date).toLocaleString('fr-FR', {
@@ -860,7 +866,7 @@ function App() {
     }
   };
 
-  const toggleLabel = (labelId) => {
+  const toggleLabel = useCallback((labelId) => {
     if (!isRunning) return;
 
     setClickedLabel(labelId);
@@ -869,7 +875,7 @@ function App() {
     const currentTime = elapsedTime;
     const currentTimestamp = Date.now();
     const newRecordings = [...recordings];
-    const labelName = labels.find(l => l.id === labelId).name;
+    const labelName = LABELS.find(l => l.id === labelId).name;
     
     if (mode === 'instantane' || mode === 'vocal') {
       if (recordings.length === 0 && Object.keys(pendingLabels).length === 0) {
@@ -1008,7 +1014,7 @@ function App() {
         );
         
         newRecordings.push({
-          label: labels.find(l => l.id === activeLabelId).name,
+          label: LABELS.find(l => l.id === activeLabelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
           duration: formatTime(currentTime - startTimeLabel),
@@ -1022,7 +1028,7 @@ function App() {
       setActiveLabels({ [labelId]: { time: currentTime, timestamp: currentTimestamp } });
       setRecordings(newRecordings);
     }
-  };
+  }, [isRunning, mode, elapsedTime, recordings, pendingLabels, sessionStartDate, startTime, imuHistory, activeLabels, formatTime, addDebugLog]);
 
   // Mettre à jour la ref pour la reconnaissance vocale
   useEffect(() => {
@@ -1059,7 +1065,7 @@ function App() {
         );
         
         finalRecordings.push({
-          label: labels.find(l => l.id === labelId).name,
+          label: LABELS.find(l => l.id === labelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
           duration: formatTime(currentTime - startTimeLabel),
@@ -2032,7 +2038,7 @@ function App() {
                 🎤 Phrases à dire pour chaque label
               </h3>
               <div className="space-y-2 text-xs">
-                {labels.map(label => (
+                {LABELS.map(label => (
                   <div key={label.id} className="bg-slate-800 rounded p-2 border border-slate-600">
                     <div className="text-cyan-400 font-semibold mb-1">
                       {label.name}
@@ -2081,7 +2087,7 @@ function App() {
               {showVoiceHelp && (
                 <div className="bg-slate-700 border border-slate-500 rounded-lg p-3">
                   <div className="space-y-2 text-xs max-h-64 overflow-y-auto">
-                    {labels.map(label => (
+                    {LABELS.map(label => (
                       <div key={label.id} className="bg-slate-800 rounded p-2 border border-slate-600">
                         <div className="text-cyan-400 font-semibold mb-1 text-[11px]">
                           {label.name}
@@ -2427,7 +2433,7 @@ function App() {
               <div className="space-y-2">
                 {/* Accélération */}
                 {(() => {
-                  const label = labels.find(l => l.id === 'acceleration');
+                  const label = LABELS.find(l => l.id === 'acceleration');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2455,7 +2461,7 @@ function App() {
 
                 {/* Virage gauche */}
                 {(() => {
-                  const label = labels.find(l => l.id === 'left-turn');
+                  const label = LABELS.find(l => l.id === 'left-turn');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2483,7 +2489,7 @@ function App() {
 
                 {/* Changement de voie gauche */}
                 {(() => {
-                  const label = labels.find(l => l.id === 'left-lane');
+                  const label = LABELS.find(l => l.id === 'left-lane');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2514,7 +2520,7 @@ function App() {
               <div className="space-y-2">
                 {/* Freinage */}
                 {(() => {
-                  const label = labels.find(l => l.id === 'braking');
+                  const label = LABELS.find(l => l.id === 'braking');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2542,7 +2548,7 @@ function App() {
 
                 {/* Virage droite */}
                 {(() => {
-                  const label = labels.find(l => l.id === 'right-turn');
+                  const label = LABELS.find(l => l.id === 'right-turn');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2570,7 +2576,7 @@ function App() {
 
                 {/* Changement de voie droite */}
                 {(() => {
-                  const label = labels.find(l => l.id === 'right-lane');
+                  const label = LABELS.find(l => l.id === 'right-lane');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2633,7 +2639,7 @@ function App() {
                 {clickedLabel && (
                   <div className="bg-green-600 border-2 border-green-400 rounded-lg p-4 animate-pulse">
                     <p className="text-white font-bold text-center text-lg">
-                      ✅ {labels.find(l => l.id === clickedLabel)?.name}
+                      ✅ {LABELS.find(l => l.id === clickedLabel)?.name}
                     </p>
                     <p className="text-green-200 text-sm text-center mt-1">
                       Label reconnu et enregistré !
