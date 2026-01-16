@@ -1508,7 +1508,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.12-EDITAFTER ✅
+          v6.13-CLEAN ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1689,12 +1689,12 @@ function App() {
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <div className="relative">
-                <div className="flex">
+              <div className="relative w-full sm:w-auto sm:flex-1">
+                <div className="flex w-full">
                   <button
                     onClick={() => uploadToGitHub(selectedSession.recordings, selectedSession)}
                     disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
-                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-6 py-3 rounded-l-lg font-semibold inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-6 py-3 rounded-l-lg font-semibold inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-1"
                   >
                     <Github size={18} />
                     {uploadStatus === 'uploading' ? 'Envoi...' : 
@@ -1704,7 +1704,7 @@ function App() {
                   </button>
                   <button
                     onClick={() => setShowGithubConfig(!showGithubConfig)}
-                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-2 py-3 rounded-r-lg border-l border-slate-600"
+                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-2 py-3 rounded-r-lg border-l border-slate-600 flex-shrink-0"
                   >
                     <ChevronDown size={16} className={showGithubConfig ? 'rotate-180' : ''} />
                   </button>
@@ -1762,7 +1762,7 @@ function App() {
               <button
                 onClick={() => uploadToDrive(selectedSession.recordings, selectedSession)}
                 disabled={uploadStatus === 'uploading'}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto sm:flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download size={18} />
                 {uploadStatus === 'uploading' ? 'Envoi...' : 
@@ -1772,7 +1772,7 @@ function App() {
               </button>
               <button
                 onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
-                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
+                className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto sm:flex-1 justify-center"
               >
                 <Download size={18} />
                 Télécharger CSV
@@ -2324,19 +2324,19 @@ function App() {
                 {uploadStatus === 'error' && <p className="text-orange-400 text-lg font-semibold">⚠️ Erreur d'envoi - Téléchargement local effectué</p>}
                 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <div className="relative">
-                    <div className="flex">
+                  <div className="relative w-full sm:w-auto sm:flex-1">
+                    <div className="flex w-full">
                       <button
                         onClick={() => uploadToGitHub(currentSessionData.recordings, currentSessionData)}
                         disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
-                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-l-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
+                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-l-lg text-base font-semibold inline-flex items-center gap-2 justify-center flex-1"
                       >
                         <Github size={20} />
                         {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer GitHub'}
                       </button>
                       <button
                         onClick={() => setShowGithubConfig(!showGithubConfig)}
-                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-3 py-4 rounded-r-lg border-l border-slate-600"
+                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-3 py-4 rounded-r-lg border-l border-slate-600 flex-shrink-0"
                       >
                         <ChevronDown size={20} className={showGithubConfig ? 'rotate-180' : ''} />
                       </button>
@@ -2394,14 +2394,14 @@ function App() {
                   <button
                     onClick={() => uploadToDrive(currentSessionData.recordings, currentSessionData)}
                     disabled={uploadStatus === 'uploading'}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
+                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center w-full sm:w-auto sm:flex-1"
                   >
                     <Download size={20} />
                     {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
                   </button>
                   <button
                     onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center w-full sm:w-auto sm:flex-1"
                   >
                     <Download size={20} />
                     Télécharger CSV
@@ -2477,7 +2477,7 @@ function App() {
           </div>
         </div>
 
-        {mode !== 'vocal' && (
+        {mode !== 'vocal' && !sessionEnded && (
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
             <h2 className="text-lg font-semibold text-white mb-4">Labels de conduite</h2>
             <div className="grid grid-cols-2 gap-2">
