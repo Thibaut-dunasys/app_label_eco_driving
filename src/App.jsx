@@ -1409,7 +1409,7 @@ function App() {
       
       const carNamePart = session.carName && session.carName !== 'Sans nom' ? `_${removeAccents(session.carName).replace(/\s+/g, '')}` : '';
       const filename = `labelisation${carNamePart}_${formatDateTimeForFilename(session.startDate)}.csv`;
-      const filePath = `data/${filename}`;
+      const filePath = `data/roulage/${filename}`;
 
       addDebugLog(`📄 Fichier: ${filename}`, 'info');
       
@@ -1468,7 +1468,7 @@ function App() {
         addDebugLog(`✅ Upload GitHub réussi: ${filename}`, 'success');
         addDebugLog(`🔗 Lien: ${result.content.html_url}`, 'info');
         setUploadStatus('success');
-        alert('✅ Fichier envoyé sur GitHub avec succès!\n\nFichier: ' + filename + '\n\nVérifiez sur GitHub dans le dossier data/');
+        alert('✅ Fichier envoyé sur GitHub avec succès!\n\nFichier: ' + filename + '\n\nVérifiez sur GitHub dans le dossier data/roulage/');
         setTimeout(() => setUploadStatus('idle'), 3000);
       } else {
         const errorData = await response.json();
@@ -1508,7 +1508,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.13-CLEAN ✅
+          v6.13.1-ROULAGE ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
