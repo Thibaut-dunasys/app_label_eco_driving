@@ -13,7 +13,7 @@ function App() {
   const [sessionStartDate, setSessionStartDate] = useState(null);
   const [activeLabels, setActiveLabels] = useState({});
   const [recordings, setRecordings] = useState([]);
-  const [editingRecordingId, setEditingRecordingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [currentSessionData, setCurrentSessionData] = useState(null);
@@ -724,10 +724,6 @@ function App() {
 
   // PLUS BESOIN de ce système, on va gérer ça différemment
 
-  const generateRecordingId = () => {
-    return `rec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  };
-
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -853,6 +849,12 @@ function App() {
     }
   };
 
+  const editLabel = (id, newLabelId) => {
+    const newLabel = labels.find(l => l.id === newLabelId);
+    setRecordings(prev => prev.map(r => r.id === id ? {...r, label: newLabel.name} : r));
+    setEditingId(null);
+  };
+
   const toggleLabel = (labelId) => {
     if (!isRunning) return;
 
@@ -880,7 +882,7 @@ function App() {
         addDebugLog(`📝 Init (mode ${mode}): ${initImuData.length} mesures`, 'info');
         
         newRecordings.push({
-          id: generateRecordingId(),
+          id: Date.now(),
           label: 'Initialisation',
           startTime: formatTime(initStartTime),
           endTime: formatTime(Math.max(0, initEndTime)),
@@ -935,7 +937,7 @@ function App() {
         addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
         
         setRecordings(prev => [...prev, {
-          id: generateRecordingId(),
+          id: Date.now() + Math.random(),
           label: labelName,
           startTime: formatTime(Math.max(0, startTime5sBefore)),
           endTime: formatTime(finalTime),
@@ -960,7 +962,6 @@ function App() {
       addDebugLog(`📝 Init: ${initImuData.length} mesures`, 'info');
       
       newRecordings.push({
-        id: generateRecordingId(),
         label: 'Initialisation',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
@@ -983,7 +984,6 @@ function App() {
       addDebugLog(`✅ ${labelName}: ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
       
       newRecordings.push({
-        id: generateRecordingId(),
         label: labelName,
         startTime: formatTime(startTimeLabel),
         endTime: formatTime(currentTime),
@@ -1005,7 +1005,6 @@ function App() {
         );
         
         newRecordings.push({
-          id: generateRecordingId(),
           label: labels.find(l => l.id === activeLabelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
@@ -1027,18 +1026,6 @@ function App() {
     toggleLabelRef.current = toggleLabel;
   }, [toggleLabel]);
 
-  // Fonction pour éditer le label d'un événement
-  const editRecordingLabel = (recordingId, newLabelId) => {
-    const newLabelName = labels.find(l => l.id === newLabelId).name;
-    setRecordings(prev => prev.map(rec => 
-      rec.id === recordingId 
-        ? { ...rec, label: newLabelName }
-        : rec
-    ));
-    setEditingRecordingId(null);
-    addDebugLog(`✏️ Label modifié → ${newLabelName}`, 'success');
-  };
-
   const endSession = () => {
     const finalRecordings = [...recordings];
     const currentTime = elapsedTime;
@@ -1051,7 +1038,6 @@ function App() {
     // Ajouter les labels actifs aux enregistrements
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
-        id: generateRecordingId(),
         label: 'Initialisation',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
@@ -1070,7 +1056,6 @@ function App() {
         );
         
         finalRecordings.push({
-          id: generateRecordingId(),
           label: labels.find(l => l.id === labelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
@@ -1112,7 +1097,6 @@ function App() {
           const gapImuData = imuHistory.filter(d => d.timestamp >= gapStart && d.timestamp < gapEnd);
           
           allRecordingsWithGaps.push({
-            id: generateRecordingId(),
             label: 'Conduite non agressive',
             startTime: formatTime(0),
             endTime: formatTime(gapEnd - sessionStart),
@@ -1140,7 +1124,6 @@ function App() {
             const gapImuData = imuHistory.filter(d => d.timestamp > currentEnd && d.timestamp < nextStart);
             
             allRecordingsWithGaps.push({
-              id: generateRecordingId(),
               label: 'Conduite non agressive',
               startTime: formatTime(currentEnd - sessionStart),
               endTime: formatTime(nextStart - sessionStart),
@@ -1164,7 +1147,6 @@ function App() {
           const gapImuData = imuHistory.filter(d => d.timestamp > lastEnd && d.timestamp <= sessionEnd);
           
           allRecordingsWithGaps.push({
-            id: generateRecordingId(),
             label: 'Conduite non agressive',
             startTime: formatTime(lastEnd - sessionStart),
             endTime: formatTime(currentTime),
@@ -1184,7 +1166,6 @@ function App() {
     
     // Ajouter le marqueur "Fin"
     allRecordingsWithGaps.push({
-      id: generateRecordingId(),
       label: 'Fin',
       startTime: formatTime(currentTime),
       endTime: formatTime(currentTime),
@@ -2637,37 +2618,24 @@ function App() {
                     <div className="flex items-start gap-2 flex-1">
                       <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        {editingRecordingId === rec.id ? (
-                          <div className="space-y-2 mb-2">
-                            <p className="text-xs text-slate-300 mb-2">📝 Changer le label :</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {labels.map(label => (
-                                <button
-                                  key={label.id}
-                                  onClick={() => editRecordingLabel(rec.id, label.id)}
-                                  className={`${label.color} hover:opacity-80 active:scale-95 text-white px-3 py-2 rounded text-xs font-semibold transition-all`}
-                                >
-                                  {label.name}
+                        {editingId === rec.id ? (
+                          <div className="mb-2">
+                            <p className="text-xs text-slate-400 mb-2">Choisir le label :</p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {labels.map(l => (
+                                <button key={l.id} onClick={() => editLabel(rec.id, l.id)} className={`${l.color} text-white px-2 py-1 rounded text-xs`}>
+                                  {l.name}
                                 </button>
                               ))}
                             </div>
-                            <button
-                              onClick={() => setEditingRecordingId(null)}
-                              className="text-slate-400 hover:text-white text-xs underline mt-2"
-                            >
-                              ✕ Annuler
-                            </button>
+                            <button onClick={() => setEditingId(null)} className="text-xs text-slate-400 mt-1">Annuler</button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-white text-sm">{rec.label}</p>
-                            {isRunning && rec.label !== 'Initialisation' && (
-                              <button
-                                onClick={() => setEditingRecordingId(rec.id)}
-                                className="text-slate-400 hover:text-cyan-400 active:scale-95 transition-all"
-                                title="Modifier le label"
-                              >
-                                <Edit2 size={14} />
+                            {isRunning && rec.label !== 'Initialisation' && rec.id && (
+                              <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
+                                <Edit2 size={12} />
                               </button>
                             )}
                           </div>
