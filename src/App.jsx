@@ -1682,17 +1682,6 @@ function App() {
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => uploadToDrive(selectedSession.recordings, selectedSession)}
-                disabled={uploadStatus === 'uploading'}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Download size={18} />
-                {uploadStatus === 'uploading' ? 'Envoi...' : 
-                 uploadStatus === 'success' ? 'Envoyé !' :
-                 uploadStatus === 'error' ? 'Erreur' :
-                 'Envoyer Drive'}
-              </button>
               <div className="relative">
                 <div className="flex">
                   <button
@@ -1763,6 +1752,17 @@ function App() {
                   </div>
                 )}
               </div>
+              <button
+                onClick={() => uploadToDrive(selectedSession.recordings, selectedSession)}
+                disabled={uploadStatus === 'uploading'}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download size={18} />
+                {uploadStatus === 'uploading' ? 'Envoi...' : 
+                 uploadStatus === 'success' ? 'Envoyé !' :
+                 uploadStatus === 'error' ? 'Erreur' :
+                 'Envoyer Drive'}
+              </button>
               <button
                 onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
                 className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
@@ -2317,14 +2317,6 @@ function App() {
                 {uploadStatus === 'error' && <p className="text-orange-400 text-lg font-semibold">⚠️ Erreur d'envoi - Téléchargement local effectué</p>}
                 
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <button
-                    onClick={() => uploadToDrive(currentSessionData.recordings, currentSessionData)}
-                    disabled={uploadStatus === 'uploading'}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
-                  >
-                    <Download size={20} />
-                    {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
-                  </button>
                   <div className="relative">
                     <div className="flex">
                       <button
@@ -2392,6 +2384,14 @@ function App() {
                       </div>
                     )}
                   </div>
+                  <button
+                    onClick={() => uploadToDrive(currentSessionData.recordings, currentSessionData)}
+                    disabled={uploadStatus === 'uploading'}
+                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
+                  >
+                    <Download size={20} />
+                    {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
+                  </button>
                   <button
                     onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
