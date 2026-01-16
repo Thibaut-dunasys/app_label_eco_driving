@@ -853,6 +853,13 @@ function App() {
   const editLabel = (id, newLabelId) => {
     const newLabel = labels.find(l => l.id === newLabelId);
     setRecordings(prev => prev.map(r => r.id === id ? {...r, label: newLabel.name} : r));
+    // Met à jour aussi currentSessionData si la session est terminée
+    if (currentSessionData) {
+      setCurrentSessionData(prev => ({
+        ...prev,
+        recordings: prev.recordings.map(r => r.id === id ? {...r, label: newLabel.name} : r)
+      }));
+    }
     setEditingId(null);
   };
 
@@ -1501,7 +1508,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.11-GHCFG ✅
+          v6.12-EDITAFTER ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2400,6 +2407,66 @@ function App() {
                     Télécharger CSV
                   </button>
                 </div>
+                
+                {/* Liste des événements avec possibilité d'édition */}
+                {currentSessionData && currentSessionData.recordings && currentSessionData.recordings.length > 0 && (
+                  <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold text-white">Événements enregistrés</h2>
+                      <span className="bg-green-900 text-green-300 text-xs px-3 py-1 rounded-full font-mono">
+                        {currentSessionData.recordings.length} event{currentSessionData.recordings.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                      {currentSessionData.recordings.map((rec, idx) => (
+                        <div key={rec.id || idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600 animate-fadeIn">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2 flex-1">
+                              <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                {editingId === rec.id ? (
+                                  <div className="mb-2">
+                                    <p className="text-xs text-slate-400 mb-2">Choisir le label :</p>
+                                    <div className="grid grid-cols-2 gap-1">
+                                      {labels.map(l => (
+                                        <button key={l.id} onClick={() => editLabel(rec.id, l.id)} className={`${l.color} text-white px-2 py-1 rounded text-xs`}>
+                                          {l.name}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <button onClick={() => setEditingId(null)} className="text-xs text-slate-400 mt-1">Annuler</button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-medium text-white text-sm">{rec.label}</p>
+                                    {rec.label !== 'Initialisation' && rec.label !== 'Fin' && rec.id && (
+                                      <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
+                                        <Edit2 size={12} />
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="flex flex-col gap-1 text-xs text-slate-400 font-mono">
+                                  <div>📅 Début: {formatDateTimeOnly(rec.absoluteStartTime)}</div>
+                                  <div>📅 Fin: {formatDateTimeOnly(rec.absoluteEndTime)}</div>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    <span className="text-cyan-400">⏱️ Durée: {rec.duration}</span>
+                                    {rec.imuData && rec.imuData.length > 0 && (
+                                      <>
+                                        <span className="text-slate-500">•</span>
+                                        <span className="text-cyan-400">{rec.imuData.length} mesures</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {!imuPermission && !isRunning && !sessionEnded && (
@@ -2700,7 +2767,7 @@ function App() {
                         ) : (
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-white text-sm">{rec.label}</p>
-                            {isRunning && rec.label !== 'Initialisation' && rec.id && (
+                            {isRunning && rec.label !== 'Initialisation' && rec.label !== 'Fin' && rec.id && (
                               <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
                                 <Edit2 size={12} />
                               </button>
