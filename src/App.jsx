@@ -1,6 +1,6 @@
 //lalala
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github, ChevronDown } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -14,6 +14,7 @@ function App() {
   const [activeLabels, setActiveLabels] = useState({});
   const [recordings, setRecordings] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [showGithubConfig, setShowGithubConfig] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [currentSessionData, setCurrentSessionData] = useState(null);
@@ -1500,7 +1501,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.10-EDIT ✅
+          v6.11-GHCFG ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1692,17 +1693,76 @@ function App() {
                  uploadStatus === 'error' ? 'Erreur' :
                  'Envoyer Drive'}
               </button>
-              <button
-                onClick={() => uploadToGitHub(selectedSession.recordings, selectedSession)}
-                disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
-                className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Github size={18} />
-                {uploadStatus === 'uploading' ? 'Envoi...' : 
-                 uploadStatus === 'success' ? 'Envoyé !' :
-                 uploadStatus === 'error' ? 'Erreur' :
-                 'Envoyer GitHub'}
-              </button>
+              <div className="relative">
+                <div className="flex">
+                  <button
+                    onClick={() => uploadToGitHub(selectedSession.recordings, selectedSession)}
+                    disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
+                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-6 py-3 rounded-l-lg font-semibold inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Github size={18} />
+                    {uploadStatus === 'uploading' ? 'Envoi...' : 
+                     uploadStatus === 'success' ? 'Envoyé !' :
+                     uploadStatus === 'error' ? 'Erreur' :
+                     'Envoyer GitHub'}
+                  </button>
+                  <button
+                    onClick={() => setShowGithubConfig(!showGithubConfig)}
+                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-2 py-3 rounded-r-lg border-l border-slate-600"
+                  >
+                    <ChevronDown size={16} className={showGithubConfig ? 'rotate-180' : ''} />
+                  </button>
+                </div>
+                {showGithubConfig && (
+                  <div className="absolute top-full left-0 mt-2 p-3 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50 w-80">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <Github size={14} className="inline mr-1" />
+                      Configuration GitHub
+                    </label>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Repository</label>
+                        <input
+                          type="text"
+                          value={githubRepo}
+                          onChange={(e) => {
+                            setGithubRepo(e.target.value);
+                            localStorage.setItem('githubRepo', e.target.value);
+                          }}
+                          placeholder="username/repository"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Token</label>
+                        <input
+                          type="password"
+                          value={githubToken}
+                          onChange={(e) => {
+                            setGithubToken(e.target.value);
+                            localStorage.setItem('githubToken', e.target.value);
+                          }}
+                          placeholder="ghp_xxxxxxxxxxxx"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Branche</label>
+                        <input
+                          type="text"
+                          value={githubBranch}
+                          onChange={(e) => {
+                            setGithubBranch(e.target.value);
+                            localStorage.setItem('githubBranch', e.target.value);
+                          }}
+                          placeholder="main"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
                 className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
@@ -2133,59 +2193,7 @@ function App() {
             </div>
           )}
           
-          {/* Configuration GitHub */}
-          {!isRunning && (
-            <div className="mb-3 p-3 bg-slate-700 rounded-lg border border-slate-600">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                <Github size={16} className="inline mr-1" />
-                Configuration GitHub
-              </label>
-              <div className="space-y-2">
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Repository (owner/repo)</label>
-                  <input
-                    type="text"
-                    value={githubRepo}
-                    onChange={(e) => {
-                      setGithubRepo(e.target.value);
-                      localStorage.setItem('githubRepo', e.target.value);
-                    }}
-                    placeholder="username/repository"
-                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Token GitHub</label>
-                  <input
-                    type="password"
-                    value={githubToken}
-                    onChange={(e) => {
-                      setGithubToken(e.target.value);
-                      localStorage.setItem('githubToken', e.target.value);
-                    }}
-                    placeholder="ghp_xxxxxxxxxxxx"
-                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400 block mb-1">Branche</label>
-                  <input
-                    type="text"
-                    value={githubBranch}
-                    onChange={(e) => {
-                      setGithubBranch(e.target.value);
-                      localStorage.setItem('githubBranch', e.target.value);
-                    }}
-                    placeholder="main"
-                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                  />
-                </div>
-                <p className="text-xs text-slate-400 mt-2">
-                  💡 Les fichiers seront sauvegardés dans <span className="font-mono text-cyan-400">data/</span>
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Configuration GitHub - Maintenant accessible via flèche sur boutons export */}
           
           <div className="grid grid-cols-3 gap-2 mb-2">
             <div className="bg-slate-700 rounded p-3 border border-slate-600">
@@ -2317,14 +2325,73 @@ function App() {
                     <Download size={20} />
                     {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
                   </button>
-                  <button
-                    onClick={() => uploadToGitHub(currentSessionData.recordings, currentSessionData)}
-                    disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
-                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
-                  >
-                    <Github size={20} />
-                    {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer GitHub'}
-                  </button>
+                  <div className="relative">
+                    <div className="flex">
+                      <button
+                        onClick={() => uploadToGitHub(currentSessionData.recordings, currentSessionData)}
+                        disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
+                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-l-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
+                      >
+                        <Github size={20} />
+                        {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer GitHub'}
+                      </button>
+                      <button
+                        onClick={() => setShowGithubConfig(!showGithubConfig)}
+                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-3 py-4 rounded-r-lg border-l border-slate-600"
+                      >
+                        <ChevronDown size={20} className={showGithubConfig ? 'rotate-180' : ''} />
+                      </button>
+                    </div>
+                    {showGithubConfig && (
+                      <div className="absolute top-full left-0 mt-2 p-4 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50 w-80">
+                        <label className="block text-sm font-medium text-slate-300 mb-3">
+                          <Github size={16} className="inline mr-1" />
+                          Configuration GitHub
+                        </label>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Repository</label>
+                            <input
+                              type="text"
+                              value={githubRepo}
+                              onChange={(e) => {
+                                setGithubRepo(e.target.value);
+                                localStorage.setItem('githubRepo', e.target.value);
+                              }}
+                              placeholder="username/repository"
+                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Token</label>
+                            <input
+                              type="password"
+                              value={githubToken}
+                              onChange={(e) => {
+                                setGithubToken(e.target.value);
+                                localStorage.setItem('githubToken', e.target.value);
+                              }}
+                              placeholder="ghp_xxxxxxxxxxxx"
+                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Branche</label>
+                            <input
+                              type="text"
+                              value={githubBranch}
+                              onChange={(e) => {
+                                setGithubBranch(e.target.value);
+                                localStorage.setItem('githubBranch', e.target.value);
+                              }}
+                              placeholder="main"
+                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
