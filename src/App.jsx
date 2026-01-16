@@ -1,6 +1,6 @@
 //lalala
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github, ChevronDown } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -13,6 +13,7 @@ function App() {
   const [sessionStartDate, setSessionStartDate] = useState(null);
   const [activeLabels, setActiveLabels] = useState({});
   const [recordings, setRecordings] = useState([]);
+  const [editingRecordingId, setEditingRecordingId] = useState(null);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [currentSessionData, setCurrentSessionData] = useState(null);
@@ -48,7 +49,6 @@ function App() {
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
   const [showVoiceHelp, setShowVoiceHelp] = useState(false);
-  const [showGithubConfig, setShowGithubConfig] = useState(false);
   const recognitionRef = useRef(null);
 
   // Wake Lock pour empêcher la mise en veille
@@ -724,6 +724,10 @@ function App() {
 
   // PLUS BESOIN de ce système, on va gérer ça différemment
 
+  const generateRecordingId = () => {
+    return `rec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
+
   const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -853,7 +857,7 @@ function App() {
     if (!isRunning) return;
 
     setClickedLabel(labelId);
-    setTimeout(() => setClickedLabel(null), mode === 'vocal' ? 1000 : 500);
+    setTimeout(() => setClickedLabel(null), mode === 'vocal' ? 2000 : 500);
 
     const currentTime = elapsedTime;
     const currentTimestamp = Date.now();
@@ -876,6 +880,7 @@ function App() {
         addDebugLog(`📝 Init (mode ${mode}): ${initImuData.length} mesures`, 'info');
         
         newRecordings.push({
+          id: generateRecordingId(),
           label: 'Initialisation',
           startTime: formatTime(initStartTime),
           endTime: formatTime(Math.max(0, initEndTime)),
@@ -930,6 +935,7 @@ function App() {
         addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
         
         setRecordings(prev => [...prev, {
+          id: generateRecordingId(),
           label: labelName,
           startTime: formatTime(Math.max(0, startTime5sBefore)),
           endTime: formatTime(finalTime),
@@ -954,6 +960,7 @@ function App() {
       addDebugLog(`📝 Init: ${initImuData.length} mesures`, 'info');
       
       newRecordings.push({
+        id: generateRecordingId(),
         label: 'Initialisation',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
@@ -976,6 +983,7 @@ function App() {
       addDebugLog(`✅ ${labelName}: ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
       
       newRecordings.push({
+        id: generateRecordingId(),
         label: labelName,
         startTime: formatTime(startTimeLabel),
         endTime: formatTime(currentTime),
@@ -997,6 +1005,7 @@ function App() {
         );
         
         newRecordings.push({
+          id: generateRecordingId(),
           label: labels.find(l => l.id === activeLabelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
@@ -1018,6 +1027,18 @@ function App() {
     toggleLabelRef.current = toggleLabel;
   }, [toggleLabel]);
 
+  // Fonction pour éditer le label d'un événement
+  const editRecordingLabel = (recordingId, newLabelId) => {
+    const newLabelName = labels.find(l => l.id === newLabelId).name;
+    setRecordings(prev => prev.map(rec => 
+      rec.id === recordingId 
+        ? { ...rec, label: newLabelName }
+        : rec
+    ));
+    setEditingRecordingId(null);
+    addDebugLog(`✏️ Label modifié → ${newLabelName}`, 'success');
+  };
+
   const endSession = () => {
     const finalRecordings = [...recordings];
     const currentTime = elapsedTime;
@@ -1030,6 +1051,7 @@ function App() {
     // Ajouter les labels actifs aux enregistrements
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
+        id: generateRecordingId(),
         label: 'Initialisation',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
@@ -1048,6 +1070,7 @@ function App() {
         );
         
         finalRecordings.push({
+          id: generateRecordingId(),
           label: labels.find(l => l.id === labelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
@@ -1089,6 +1112,7 @@ function App() {
           const gapImuData = imuHistory.filter(d => d.timestamp >= gapStart && d.timestamp < gapEnd);
           
           allRecordingsWithGaps.push({
+            id: generateRecordingId(),
             label: 'Conduite non agressive',
             startTime: formatTime(0),
             endTime: formatTime(gapEnd - sessionStart),
@@ -1116,6 +1140,7 @@ function App() {
             const gapImuData = imuHistory.filter(d => d.timestamp > currentEnd && d.timestamp < nextStart);
             
             allRecordingsWithGaps.push({
+              id: generateRecordingId(),
               label: 'Conduite non agressive',
               startTime: formatTime(currentEnd - sessionStart),
               endTime: formatTime(nextStart - sessionStart),
@@ -1139,6 +1164,7 @@ function App() {
           const gapImuData = imuHistory.filter(d => d.timestamp > lastEnd && d.timestamp <= sessionEnd);
           
           allRecordingsWithGaps.push({
+            id: generateRecordingId(),
             label: 'Conduite non agressive',
             startTime: formatTime(lastEnd - sessionStart),
             endTime: formatTime(currentTime),
@@ -1158,6 +1184,7 @@ function App() {
     
     // Ajouter le marqueur "Fin"
     allRecordingsWithGaps.push({
+      id: generateRecordingId(),
       label: 'Fin',
       startTime: formatTime(currentTime),
       endTime: formatTime(currentTime),
@@ -1492,7 +1519,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.9.2-GHCFG ✅
+          v6.10-EDIT ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1684,79 +1711,17 @@ function App() {
                  uploadStatus === 'error' ? 'Erreur' :
                  'Envoyer Drive'}
               </button>
-              <div className="relative inline-block w-full sm:w-auto">
-                <div className="flex">
-                  <button
-                    onClick={() => uploadToGitHub(selectedSession.recordings, selectedSession)}
-                    disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
-                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-6 py-3 rounded-l-lg font-semibold inline-flex items-center gap-2 justify-center flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Github size={18} />
-                    {uploadStatus === 'uploading' ? 'Envoi...' : 
-                     uploadStatus === 'success' ? 'Envoyé !' :
-                     uploadStatus === 'error' ? 'Erreur' :
-                     'Envoyer GitHub'}
-                  </button>
-                  <button
-                    onClick={() => setShowGithubConfig(!showGithubConfig)}
-                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-2 py-3 rounded-r-lg border-l border-slate-600"
-                  >
-                    <ChevronDown size={18} className={`transition-transform ${showGithubConfig ? 'rotate-180' : ''}`} />
-                  </button>
-                </div>
-                {showGithubConfig && (
-                  <div className="absolute top-full left-0 right-0 mt-2 p-3 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50 min-w-[300px]">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      <Github size={14} className="inline mr-1" />
-                      Configuration GitHub
-                    </label>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Repository (owner/repo)</label>
-                        <input
-                          type="text"
-                          value={githubRepo}
-                          onChange={(e) => {
-                            setGithubRepo(e.target.value);
-                            localStorage.setItem('githubRepo', e.target.value);
-                          }}
-                          placeholder="username/repository"
-                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Token GitHub</label>
-                        <input
-                          type="password"
-                          value={githubToken}
-                          onChange={(e) => {
-                            setGithubToken(e.target.value);
-                            localStorage.setItem('githubToken', e.target.value);
-                          }}
-                          placeholder="ghp_xxxxxxxxxxxx"
-                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Branche</label>
-                        <input
-                          type="text"
-                          value={githubBranch}
-                          onChange={(e) => {
-                            setGithubBranch(e.target.value);
-                            localStorage.setItem('githubBranch', e.target.value);
-                          }}
-                          placeholder="main"
-                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                        />
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        💡 Fichiers dans <span className="font-mono text-cyan-400">data/</span>
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => uploadToGitHub(selectedSession.recordings, selectedSession)}
+                disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
+                className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Github size={18} />
+                {uploadStatus === 'uploading' ? 'Envoi...' : 
+                 uploadStatus === 'success' ? 'Envoyé !' :
+                 uploadStatus === 'error' ? 'Erreur' :
+                 'Envoyer GitHub'}
+              </button>
               <button
                 onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
                 className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto justify-center"
@@ -2187,7 +2152,59 @@ function App() {
             </div>
           )}
           
-          {/* Configuration GitHub cachée - accessible via boutons export */}
+          {/* Configuration GitHub */}
+          {!isRunning && (
+            <div className="mb-3 p-3 bg-slate-700 rounded-lg border border-slate-600">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                <Github size={16} className="inline mr-1" />
+                Configuration GitHub
+              </label>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Repository (owner/repo)</label>
+                  <input
+                    type="text"
+                    value={githubRepo}
+                    onChange={(e) => {
+                      setGithubRepo(e.target.value);
+                      localStorage.setItem('githubRepo', e.target.value);
+                    }}
+                    placeholder="username/repository"
+                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Token GitHub</label>
+                  <input
+                    type="password"
+                    value={githubToken}
+                    onChange={(e) => {
+                      setGithubToken(e.target.value);
+                      localStorage.setItem('githubToken', e.target.value);
+                    }}
+                    placeholder="ghp_xxxxxxxxxxxx"
+                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 block mb-1">Branche</label>
+                  <input
+                    type="text"
+                    value={githubBranch}
+                    onChange={(e) => {
+                      setGithubBranch(e.target.value);
+                      localStorage.setItem('githubBranch', e.target.value);
+                    }}
+                    placeholder="main"
+                    className="w-full bg-slate-600 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  💡 Les fichiers seront sauvegardés dans <span className="font-mono text-cyan-400">data/</span>
+                </p>
+              </div>
+            </div>
+          )}
           
           <div className="grid grid-cols-3 gap-2 mb-2">
             <div className="bg-slate-700 rounded p-3 border border-slate-600">
@@ -2319,76 +2336,14 @@ function App() {
                     <Download size={20} />
                     {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
                   </button>
-                  <div className="relative inline-block w-full sm:w-auto">
-                    <div className="flex">
-                      <button
-                        onClick={() => uploadToGitHub(currentSessionData.recordings, currentSessionData)}
-                        disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
-                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-l-lg text-base font-semibold inline-flex items-center gap-2 justify-center flex-1"
-                      >
-                        <Github size={20} />
-                        {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer GitHub'}
-                      </button>
-                      <button
-                        onClick={() => setShowGithubConfig(!showGithubConfig)}
-                        className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 text-white px-3 py-4 rounded-r-lg border-l border-slate-600"
-                      >
-                        <ChevronDown size={20} className={`transition-transform ${showGithubConfig ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-                    {showGithubConfig && (
-                      <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50">
-                        <label className="block text-sm font-medium text-slate-300 mb-3">
-                          <Github size={16} className="inline mr-1" />
-                          Configuration GitHub
-                        </label>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="text-xs text-slate-400 block mb-1">Repository (owner/repo)</label>
-                            <input
-                              type="text"
-                              value={githubRepo}
-                              onChange={(e) => {
-                                setGithubRepo(e.target.value);
-                                localStorage.setItem('githubRepo', e.target.value);
-                              }}
-                              placeholder="username/repository"
-                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-slate-400 block mb-1">Token GitHub</label>
-                            <input
-                              type="password"
-                              value={githubToken}
-                              onChange={(e) => {
-                                setGithubToken(e.target.value);
-                                localStorage.setItem('githubToken', e.target.value);
-                              }}
-                              placeholder="ghp_xxxxxxxxxxxx"
-                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-slate-400 block mb-1">Branche</label>
-                            <input
-                              type="text"
-                              value={githubBranch}
-                              onChange={(e) => {
-                                setGithubBranch(e.target.value);
-                                localStorage.setItem('githubBranch', e.target.value);
-                              }}
-                              placeholder="main"
-                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
-                            />
-                          </div>
-                          <p className="text-xs text-slate-400">
-                            💡 Fichiers sauvegardés dans <span className="font-mono text-cyan-400">data/</span>
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => uploadToGitHub(currentSessionData.recordings, currentSessionData)}
+                    disabled={uploadStatus === 'uploading' || !githubToken || !githubRepo}
+                    className="bg-gradient-to-r from-slate-700 to-slate-900 hover:from-slate-800 hover:to-black active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
+                  >
+                    <Github size={20} />
+                    {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer GitHub'}
+                  </button>
                   <button
                     onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center"
@@ -2677,12 +2632,46 @@ function App() {
             </div>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {recordings.map((rec, idx) => (
-                <div key={idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600 animate-fadeIn">
+                <div key={rec.id || idx} className="bg-slate-700 p-3 rounded-lg border border-slate-600 animate-fadeIn">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-2 flex-1">
                       <CheckCircle size={16} className="text-green-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white text-sm mb-1">{rec.label}</p>
+                        {editingRecordingId === rec.id ? (
+                          <div className="space-y-2 mb-2">
+                            <p className="text-xs text-slate-300 mb-2">📝 Changer le label :</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {labels.map(label => (
+                                <button
+                                  key={label.id}
+                                  onClick={() => editRecordingLabel(rec.id, label.id)}
+                                  className={`${label.color} hover:opacity-80 active:scale-95 text-white px-3 py-2 rounded text-xs font-semibold transition-all`}
+                                >
+                                  {label.name}
+                                </button>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => setEditingRecordingId(null)}
+                              className="text-slate-400 hover:text-white text-xs underline mt-2"
+                            >
+                              ✕ Annuler
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium text-white text-sm">{rec.label}</p>
+                            {isRunning && rec.label !== 'Initialisation' && (
+                              <button
+                                onClick={() => setEditingRecordingId(rec.id)}
+                                className="text-slate-400 hover:text-cyan-400 active:scale-95 transition-all"
+                                title="Modifier le label"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        )}
                         <div className="flex flex-col gap-1 text-xs text-slate-400 font-mono">
                           <div>📅 Début: {formatDateTimeOnly(rec.absoluteStartTime)}</div>
                           <div>📅 Fin: {formatDateTimeOnly(rec.absoluteEndTime)}</div>
