@@ -1,46 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+//lalala
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github, ChevronDown } from 'lucide-react';
 import './App.css';
-
-// Labels définis en dehors du composant (ne changent jamais)
-const LABELS = [
-  { 
-    id: 'braking', 
-    name: 'Freinage', 
-    color: 'bg-zinc-600', 
-    keywords: ['freinage', 'frein', 'freinage brusque', 'freinage agressif', 'freinage fort']
-  },
-  { 
-    id: 'acceleration', 
-    name: 'Accélération', 
-    color: 'bg-neutral-600', 
-    keywords: ['accélération', 'accélération brusque', 'accélération agressive']
-  },
-  { 
-    id: 'left-turn', 
-    name: 'Virage serré à gauche', 
-    color: 'bg-gray-500', 
-    keywords: ['virage serré à gauche', 'virage serré gauche', 'virage gauche', 'virage brusque gauche', 'virage brusque à gauche', 'virage agressif à gauche', 'virage agressif gauche']
-  },
-  { 
-    id: 'right-turn', 
-    name: 'Virage serré à droite', 
-    color: 'bg-slate-600', 
-    keywords: ['virage serré à droite', 'virage serré droite', 'virage droite', 'virage brusque droite', 'virage brusque à droite', 'virage agressif à droite', 'virage agressif droite']
-  },
-  { 
-    id: 'left-lane', 
-    name: 'Changement de voie à gauche', 
-    color: 'bg-zinc-500', 
-    keywords: ['changement de voie à gauche', 'changement de voie gauche', 'changement de voix gauche', 'changement de voix à gauche', 'changement gauche', 'changement à gauche']
-  },
-  { 
-    id: 'right-lane', 
-    name: 'Changement de voie à droite', 
-    color: 'bg-gray-600', 
-    keywords: ['changement de voie à droite', 'changement de voie droite', 'changement de voix droite', 'changement de voix à droite', 'changement droite', 'changement à droite']
-  }
-];
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -196,10 +157,10 @@ function App() {
     loadGithubConfig();
   }, []);
 
-  const addDebugLog = useCallback((message, type = 'info') => {
+  const addDebugLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setDebugLogs(prev => [...prev.slice(-20), { time: timestamp, message, type }]);
-  }, []);
+  };
 
   // Fonction pour jouer un beep de confirmation
   const playBeep = () => {
@@ -225,7 +186,7 @@ function App() {
   };
 
   // Fonctions Wake Lock pour empêcher la mise en veille
-  const requestWakeLock = useCallback(async () => {
+  const requestWakeLock = async () => {
     try {
       if ('wakeLock' in navigator) {
         const lock = await navigator.wakeLock.request('screen');
@@ -240,9 +201,9 @@ function App() {
     } catch (err) {
       addDebugLog(`❌ Erreur Wake Lock: ${err.message}`, 'error');
     }
-  }, [addDebugLog]);
+  };
 
-  const releaseWakeLock = useCallback(async () => {
+  const releaseWakeLock = async () => {
     if (wakeLock) {
       try {
         await wakeLock.release();
@@ -252,7 +213,7 @@ function App() {
         addDebugLog(`⚠️ Erreur libération Wake Lock: ${err.message}`, 'warning');
       }
     }
-  }, [wakeLock, addDebugLog]);
+  };
 
   // Fonctions Pull-to-Refresh
   const handleTouchStart = (e) => {
@@ -360,8 +321,46 @@ function App() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isRunning, wakeLockSupported, wakeLock, requestWakeLock]);
+  }, [isRunning, wakeLockSupported, wakeLock]);
 
+  const labels = [
+    { 
+      id: 'braking', 
+      name: 'Freinage', 
+      color: 'bg-zinc-600', 
+      keywords: ['freinage', 'frein', 'freinage brusque', 'freinage agressif', 'freinage fort']
+    },
+    { 
+      id: 'acceleration', 
+      name: 'Accélération', 
+      color: 'bg-neutral-600', 
+      keywords: ['accélération', 'accélération brusque', 'accélération agressive']
+    },
+    { 
+      id: 'left-turn', 
+      name: 'Virage serré à gauche', 
+      color: 'bg-gray-500', 
+      keywords: ['virage serré à gauche', 'virage serré gauche', 'virage gauche', 'virage brusque gauche', 'virage brusque à gauche', 'virage agressif à gauche', 'virage agressif gauche']
+    },
+    { 
+      id: 'right-turn', 
+      name: 'Virage serré à droite', 
+      color: 'bg-slate-600', 
+      keywords: ['virage serré à droite', 'virage serré droite', 'virage droite', 'virage brusque droite', 'virage brusque à droite', 'virage agressif à droite', 'virage agressif droite']
+    },
+    { 
+      id: 'left-lane', 
+      name: 'Changement de voie à gauche', 
+      color: 'bg-zinc-500', 
+      keywords: ['changement de voie à gauche', 'changement de voie gauche', 'changement de voix gauche', 'changement de voix à gauche', 'changement gauche', 'changement à gauche']
+    },
+    { 
+      id: 'right-lane', 
+      name: 'Changement de voie à droite', 
+      color: 'bg-gray-600', 
+      keywords: ['changement de voie à droite', 'changement de voie droite', 'changement de voix droite', 'changement de voix à droite', 'changement droite', 'changement à droite']
+    }
+  ];
 
   // NOUVEAU : Initialiser la reconnaissance vocale
   useEffect(() => {
@@ -391,7 +390,7 @@ function App() {
         }
         
         // Chercher le label correspondant
-        const matchedLabel = LABELS.find(label => 
+        const matchedLabel = labels.find(label => 
           label.keywords.some(keyword => transcript.includes(keyword))
         );
         
@@ -567,13 +566,8 @@ function App() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const hasMotionSensors = 'DeviceMotionEvent' in window;
     
-    if (!isMobile || !hasMotionSensors) {
-      if (!isMobile) {
-        addDebugLog('⚠️ DESKTOP DÉTECTÉ - Les capteurs IMU ne fonctionnent PAS sur ordinateur ! Utilisez un téléphone !', 'error');
-      }
-      if (!hasMotionSensors) {
-        addDebugLog('⚠️ DeviceMotionEvent non disponible', 'error');
-      }
+    if (!isMobile) {
+      addDebugLog('⚠️ DESKTOP DÉTECTÉ - Les capteurs IMU ne fonctionnent PAS sur ordinateur ! Utilisez un téléphone !', 'error');
       setSensorWarning('⚠️ Capteurs IMU indisponibles sur desktop. Testez sur mobile !');
     } else {
       addDebugLog('📱 Mobile détecté - Capteurs IMU disponibles', 'success');
@@ -707,6 +701,7 @@ function App() {
               const actualFreq = (updated.length / elapsed).toFixed(2);
               const avgInterval = (elapsed * 1000 / updated.length).toFixed(0);
               const nonZero = updated.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0).length;
+              const recentAvg = intervalTimes.slice(-logInterval).reduce((a, b) => a + b, 0) / logInterval;
               const freqRatio = ((parseFloat(actualFreq) / samplingFrequency) * 100).toFixed(0);
               addDebugLog(`💾 ${updated.length} mesures (${nonZero} non-null) | Cible: ${samplingFrequency}Hz | Réel: ${actualFreq}Hz (${freqRatio}%) | Moy: ${avgInterval}ms`, 'info');
             }
@@ -729,13 +724,13 @@ function App() {
 
   // PLUS BESOIN de ce système, on va gérer ça différemment
 
-  const formatTime = useCallback((ms) => {
+  const formatTime = (ms) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     const milliseconds = Math.floor((ms % 1000) / 10);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
-  }, []);
+  };
 
   const formatDateTime = (date) => {
     return new Date(date).toLocaleString('fr-FR', {
@@ -765,18 +760,6 @@ function App() {
       minute: '2-digit',
       second: '2-digit'
     });
-  };
-
-  const formatDateTimeISO = (date) => {
-    // Format ISO 8601: YYYY-MM-DDTHH:mm:ss
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
   };
 
   const formatDateTimeForFilename = (date) => {
@@ -866,7 +849,7 @@ function App() {
     }
   };
 
-  const toggleLabel = useCallback((labelId) => {
+  const toggleLabel = (labelId) => {
     if (!isRunning) return;
 
     setClickedLabel(labelId);
@@ -875,7 +858,7 @@ function App() {
     const currentTime = elapsedTime;
     const currentTimestamp = Date.now();
     const newRecordings = [...recordings];
-    const labelName = LABELS.find(l => l.id === labelId).name;
+    const labelName = labels.find(l => l.id === labelId).name;
     
     if (mode === 'instantane' || mode === 'vocal') {
       if (recordings.length === 0 && Object.keys(pendingLabels).length === 0) {
@@ -1014,7 +997,7 @@ function App() {
         );
         
         newRecordings.push({
-          label: LABELS.find(l => l.id === activeLabelId).name,
+          label: labels.find(l => l.id === activeLabelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
           duration: formatTime(currentTime - startTimeLabel),
@@ -1028,7 +1011,7 @@ function App() {
       setActiveLabels({ [labelId]: { time: currentTime, timestamp: currentTimestamp } });
       setRecordings(newRecordings);
     }
-  }, [isRunning, mode, elapsedTime, recordings, pendingLabels, sessionStartDate, startTime, imuHistory, activeLabels, formatTime, addDebugLog]);
+  };
 
   // Mettre à jour la ref pour la reconnaissance vocale
   useEffect(() => {
@@ -1065,7 +1048,7 @@ function App() {
         );
         
         finalRecordings.push({
-          label: LABELS.find(l => l.id === labelId).name,
+          label: labels.find(l => l.id === labelId).name,
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
           duration: formatTime(currentTime - startTimeLabel),
@@ -1248,7 +1231,7 @@ function App() {
           ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
           : '[]';
         
-        return `"${removeAccents(row.label)}","${formatDateTimeISO(row.absoluteStartTime)}","${formatDateTimeISO(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+        return `"${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -1312,7 +1295,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(row.label)}","${formatDateTimeISO(row.absoluteStartTime)}","${formatDateTimeISO(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1402,7 +1385,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(row.label)}","${formatDateTimeISO(row.absoluteStartTime)}","${formatDateTimeISO(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1509,7 +1492,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.7-GITHUB ✅
+          v6.9.2-GHCFG ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2038,7 +2021,7 @@ function App() {
                 🎤 Phrases à dire pour chaque label
               </h3>
               <div className="space-y-2 text-xs">
-                {LABELS.map(label => (
+                {labels.map(label => (
                   <div key={label.id} className="bg-slate-800 rounded p-2 border border-slate-600">
                     <div className="text-cyan-400 font-semibold mb-1">
                       {label.name}
@@ -2087,7 +2070,7 @@ function App() {
               {showVoiceHelp && (
                 <div className="bg-slate-700 border border-slate-500 rounded-lg p-3">
                   <div className="space-y-2 text-xs max-h-64 overflow-y-auto">
-                    {LABELS.map(label => (
+                    {labels.map(label => (
                       <div key={label.id} className="bg-slate-800 rounded p-2 border border-slate-600">
                         <div className="text-cyan-400 font-semibold mb-1 text-[11px]">
                           {label.name}
@@ -2204,7 +2187,6 @@ function App() {
             </div>
           )}
           
-          {/* Configuration GitHub */}
           {/* Configuration GitHub cachée - accessible via boutons export */}
           
           <div className="grid grid-cols-3 gap-2 mb-2">
@@ -2433,7 +2415,7 @@ function App() {
               <div className="space-y-2">
                 {/* Accélération */}
                 {(() => {
-                  const label = LABELS.find(l => l.id === 'acceleration');
+                  const label = labels.find(l => l.id === 'acceleration');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2461,7 +2443,7 @@ function App() {
 
                 {/* Virage gauche */}
                 {(() => {
-                  const label = LABELS.find(l => l.id === 'left-turn');
+                  const label = labels.find(l => l.id === 'left-turn');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2489,7 +2471,7 @@ function App() {
 
                 {/* Changement de voie gauche */}
                 {(() => {
-                  const label = LABELS.find(l => l.id === 'left-lane');
+                  const label = labels.find(l => l.id === 'left-lane');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2520,7 +2502,7 @@ function App() {
               <div className="space-y-2">
                 {/* Freinage */}
                 {(() => {
-                  const label = LABELS.find(l => l.id === 'braking');
+                  const label = labels.find(l => l.id === 'braking');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2548,7 +2530,7 @@ function App() {
 
                 {/* Virage droite */}
                 {(() => {
-                  const label = LABELS.find(l => l.id === 'right-turn');
+                  const label = labels.find(l => l.id === 'right-turn');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2576,7 +2558,7 @@ function App() {
 
                 {/* Changement de voie droite */}
                 {(() => {
-                  const label = LABELS.find(l => l.id === 'right-lane');
+                  const label = labels.find(l => l.id === 'right-lane');
                   const isPending = Object.values(pendingLabels).some(p => p.labelId === label.id);
                   return (
                     <button
@@ -2639,7 +2621,7 @@ function App() {
                 {clickedLabel && (
                   <div className="bg-green-600 border-2 border-green-400 rounded-lg p-4 animate-pulse">
                     <p className="text-white font-bold text-center text-lg">
-                      ✅ {LABELS.find(l => l.id === clickedLabel)?.name}
+                      ✅ {labels.find(l => l.id === clickedLabel)?.name}
                     </p>
                     <p className="text-green-200 text-sm text-center mt-1">
                       Label reconnu et enregistré !
