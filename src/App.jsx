@@ -771,7 +771,7 @@ function App() {
     const hours = String(d.getHours()).padStart(2, '0');
     const minutes = String(d.getMinutes()).padStart(2, '0');
     const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}-${minutes}-${seconds}`;
+    return `${year}-${month}-${day} ${hours}_${minutes}_${seconds}`;
   };
 
   const startNewSession = () => {
@@ -1487,7 +1487,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.14-NOINIT ✅
+          v6.14.1-DATEFIX ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
