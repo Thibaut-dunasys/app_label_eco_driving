@@ -1078,9 +1078,9 @@ function App() {
     // ===== NOUVELLE LOGIQUE : REMPLIR TOUS LES TROUS AVEC "CONDUITE NON AGRESSIVE" =====
     addDebugLog('🔍 Analyse des trous pour "Conduite non agressive"...', 'info');
     
-    // Trier les enregistrements par temps de début (exclure "Fin" et "Initialisation")
+    // Trier les enregistrements par temps de début (exclure "Initialisation")
     const sortedRecordings = finalRecordings
-      .filter(r => r.label !== 'Fin' && r.label !== 'Initialisation')
+      .filter(r => r.label !== 'Initialisation')
       .sort((a, b) => a.absoluteStartTime.getTime() - b.absoluteStartTime.getTime());
     
     const allRecordingsWithGaps = [];
@@ -1171,17 +1171,6 @@ function App() {
     
     // Trier par ordre chronologique
     allRecordingsWithGaps.sort((a, b) => a.absoluteStartTime.getTime() - b.absoluteStartTime.getTime());
-    
-    // Ajouter le marqueur "Fin"
-    allRecordingsWithGaps.push({
-      label: 'Fin',
-      startTime: formatTime(currentTime),
-      endTime: formatTime(currentTime),
-      duration: '00:00.00',
-      absoluteStartTime: endDate,
-      absoluteEndTime: endDate,
-      imuData: []
-    });
     
     addDebugLog(`✅ ${allRecordingsWithGaps.length} enregistrements (trous comblés)`, 'success');
 
@@ -1508,7 +1497,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.13.2-VEHICULE ✅
+          v6.13.3-NOFIN ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2439,7 +2428,7 @@ function App() {
                                 ) : (
                                   <div className="flex items-center gap-2 mb-1">
                                     <p className="font-medium text-white text-sm">{rec.label}</p>
-                                    {rec.label !== 'Initialisation' && rec.label !== 'Fin' && rec.id && (
+                                    {rec.label !== 'Initialisation' && rec.id && (
                                       <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
                                         <Edit2 size={12} />
                                       </button>
@@ -2767,7 +2756,7 @@ function App() {
                         ) : (
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-white text-sm">{rec.label}</p>
-                            {isRunning && rec.label !== 'Initialisation' && rec.label !== 'Fin' && rec.id && (
+                            {isRunning && rec.label !== 'Initialisation' && rec.id && (
                               <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
                                 <Edit2 size={12} />
                               </button>
