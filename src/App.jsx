@@ -891,7 +891,7 @@ function App() {
         
         newRecordings.push({
           id: Date.now(),
-          label: 'Initialisation',
+          label: 'Conduite non agressive',
           startTime: formatTime(initStartTime),
           endTime: formatTime(Math.max(0, initEndTime)),
           duration: formatTime(Math.max(0, initEndTime)),
@@ -970,7 +970,7 @@ function App() {
       addDebugLog(`📝 Init: ${initImuData.length} mesures`, 'info');
       
       newRecordings.push({
-        label: 'Initialisation',
+        label: 'Conduite non agressive',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
         duration: formatTime(currentTime),
@@ -1046,7 +1046,7 @@ function App() {
     // Ajouter les labels actifs aux enregistrements
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
-        label: 'Initialisation',
+        label: 'Conduite non agressive',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
         duration: formatTime(currentTime),
@@ -1078,25 +1078,16 @@ function App() {
     // ===== NOUVELLE LOGIQUE : REMPLIR TOUS LES TROUS AVEC "CONDUITE NON AGRESSIVE" =====
     addDebugLog('🔍 Analyse des trous pour "Conduite non agressive"...', 'info');
     
-    // Trier les enregistrements par temps de début (exclure "Initialisation")
+    // Trier les enregistrements par temps de début
     const sortedRecordings = finalRecordings
-      .filter(r => r.label !== 'Initialisation')
       .sort((a, b) => a.absoluteStartTime.getTime() - b.absoluteStartTime.getTime());
     
     const allRecordingsWithGaps = [];
     const sessionStart = sessionStartDate.getTime();
     const sessionEnd = currentTimestamp;
     
-    // Si la session n'est QUE "Initialisation", la convertir en "Conduite non agressive"
-    if (finalRecordings.length === 1 && finalRecordings[0].label === 'Initialisation') {
-      allRecordingsWithGaps.push({
-        ...finalRecordings[0],
-        label: 'Conduite non agressive'
-      });
-      addDebugLog('🟢 Initialisation convertie en "Conduite non agressive"', 'success');
-    } else {
-      // Vérifier s'il y a un trou au début
-      if (sortedRecordings.length === 0 || sortedRecordings[0].absoluteStartTime.getTime() > sessionStart) {
+    // Vérifier s'il y a un trou au début
+    if (sortedRecordings.length === 0 || sortedRecordings[0].absoluteStartTime.getTime() > sessionStart) {
         const gapStart = sessionStart;
         const gapEnd = sortedRecordings.length > 0 ? sortedRecordings[0].absoluteStartTime.getTime() : sessionEnd;
         const duration = gapEnd - gapStart;
@@ -1167,7 +1158,6 @@ function App() {
           addDebugLog(`🟢 Trou fin: ${gapImuData.length} mesures (${(gapDuration/1000).toFixed(1)}s)`, 'success');
         }
       }
-    }
     
     // Trier par ordre chronologique
     allRecordingsWithGaps.sort((a, b) => a.absoluteStartTime.getTime() - b.absoluteStartTime.getTime());
@@ -1497,7 +1487,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.13.3-NOFIN ✅
+          v6.14-NOINIT ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2428,7 +2418,7 @@ function App() {
                                 ) : (
                                   <div className="flex items-center gap-2 mb-1">
                                     <p className="font-medium text-white text-sm">{rec.label}</p>
-                                    {rec.label !== 'Initialisation' && rec.id && (
+                                    {rec.id && (
                                       <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
                                         <Edit2 size={12} />
                                       </button>
@@ -2756,7 +2746,7 @@ function App() {
                         ) : (
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-white text-sm">{rec.label}</p>
-                            {isRunning && rec.label !== 'Initialisation' && rec.id && (
+                            {isRunning && rec.id && (
                               <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
                                 <Edit2 size={12} />
                               </button>
