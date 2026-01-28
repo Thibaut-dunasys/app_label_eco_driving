@@ -753,14 +753,14 @@ function App() {
   };
 
   const formatDateTimeOnly = (date) => {
-    return new Date(date).toLocaleString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
   const formatDateTimeForFilename = (date) => {
@@ -1500,7 +1500,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.15-DELETE ✅
+          v6.16-ISODATE ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
