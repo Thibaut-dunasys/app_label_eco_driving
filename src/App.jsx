@@ -863,6 +863,19 @@ function App() {
     setEditingId(null);
   };
 
+  const deleteEvent = (id) => {
+    if (window.confirm('Supprimer cet événement ?')) {
+      setRecordings(prev => prev.filter(r => r.id !== id));
+      // Met à jour aussi currentSessionData si la session est terminée
+      if (currentSessionData) {
+        setCurrentSessionData(prev => ({
+          ...prev,
+          recordings: prev.recordings.filter(r => r.id !== id)
+        }));
+      }
+    }
+  };
+
   const toggleLabel = (labelId) => {
     if (!isRunning) return;
 
@@ -1487,7 +1500,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.14.1-DATEFIX ✅
+          v6.15-DELETE ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2419,9 +2432,14 @@ function App() {
                                   <div className="flex items-center gap-2 mb-1">
                                     <p className="font-medium text-white text-sm">{rec.label}</p>
                                     {rec.id && (
-                                      <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
-                                        <Edit2 size={12} />
-                                      </button>
+                                      <>
+                                        <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400 transition-colors">
+                                          <Edit2 size={12} />
+                                        </button>
+                                        <button onClick={() => deleteEvent(rec.id)} className="text-slate-400 hover:text-red-400 transition-colors">
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </>
                                     )}
                                   </div>
                                 )}
@@ -2747,9 +2765,14 @@ function App() {
                           <div className="flex items-center gap-2 mb-1">
                             <p className="font-medium text-white text-sm">{rec.label}</p>
                             {isRunning && rec.id && (
-                              <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400">
-                                <Edit2 size={12} />
-                              </button>
+                              <>
+                                <button onClick={() => setEditingId(rec.id)} className="text-slate-400 hover:text-cyan-400 transition-colors">
+                                  <Edit2 size={12} />
+                                </button>
+                                <button onClick={() => deleteEvent(rec.id)} className="text-slate-400 hover:text-red-400 transition-colors">
+                                  <Trash2 size={12} />
+                                </button>
+                              </>
                             )}
                           </div>
                         )}
