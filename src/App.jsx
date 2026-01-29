@@ -890,14 +890,14 @@ function App() {
     if (mode === 'instantane' || mode === 'vocal') {
       if (recordings.length === 0 && Object.keys(pendingLabels).length === 0) {
         let initStartTime = 0;
-        let initEndTime = currentTime - 5000;
+        let initEndTime = currentTime - 10000;
         
         if (initEndTime < 0) {
           initEndTime = 0;
         }
         
         const initImuData = imuHistory.filter(d => 
-          d.timestamp <= (currentTimestamp - 5000) || d.timestamp <= sessionStartDate.getTime()
+          d.timestamp <= (currentTimestamp - 10000) || d.timestamp <= sessionStartDate.getTime()
         );
         
         addDebugLog(`📝 Init (mode ${mode}): ${initImuData.length} mesures`, 'info');
@@ -927,14 +927,14 @@ function App() {
         }
       }));
       
-      addDebugLog(`⏳ ${labelName} en attente (5s après...)`, 'info');
+      addDebugLog(`⏳ ${labelName} - Enregistrement immédiat (10s avant)`, 'info');
       
       setTimeout(() => {
         const finalTime = Date.now() - startTime;
         const finalTimestamp = Date.now();
         
-        let startTime5sBefore = currentTime - 5000;
-        let startTimestamp5sBefore = currentTimestamp - 5000;
+        let startTime10sBefore = currentTime - 10000;
+        let startTimestamp10sBefore = currentTimestamp - 10000;
         
         const currentRecordings = [...recordings];
         if (currentRecordings.length > 0) {
@@ -942,28 +942,28 @@ function App() {
           const lastEndTime = lastRecording.absoluteEndTime.getTime();
           const timeSinceLastEvent = currentTimestamp - lastEndTime;
           
-          if (timeSinceLastEvent < 5000) {
-            startTimestamp5sBefore = lastEndTime;
-            startTime5sBefore = currentTime - timeSinceLastEvent;
+          if (timeSinceLastEvent < 10000) {
+            startTimestamp10sBefore = lastEndTime;
+            startTime10sBefore = currentTime - timeSinceLastEvent;
             addDebugLog(`🔗 Événement proche détecté : ${Math.round(timeSinceLastEvent/1000)}s depuis le dernier`, 'info');
           }
         }
         
         const periodImuData = imuHistory.filter(d => 
-          d.timestamp >= startTimestamp5sBefore && d.timestamp <= finalTimestamp
+          d.timestamp >= startTimestamp10sBefore && d.timestamp <= finalTimestamp
         );
         
         const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
-        const duration = finalTime - startTime5sBefore;
+        const duration = finalTime - startTime10sBefore;
         addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
         
         setRecordings(prev => [...prev, {
           id: Date.now() + Math.random(),
           label: labelName,
-          startTime: formatTime(Math.max(0, startTime5sBefore)),
+          startTime: formatTime(Math.max(0, startTime10sBefore)),
           endTime: formatTime(finalTime),
           duration: formatTime(duration),
-          absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, startTime5sBefore)),
+          absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, startTime10sBefore)),
           absoluteEndTime: new Date(sessionStartDate.getTime() + finalTime),
           imuData: periodImuData
         }]);
@@ -973,7 +973,7 @@ function App() {
           delete updated[pendingKey];
           return updated;
         });
-      }, 5000);
+      }, 100);
       
       return;
     }
@@ -1500,7 +1500,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.16-ISODATE ✅
+          v6.17-VOCAL10S ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
