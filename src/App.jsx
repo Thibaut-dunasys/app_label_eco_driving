@@ -15,6 +15,11 @@ function App() {
   const [recordings, setRecordings] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [showGithubConfig, setShowGithubConfig] = useState(false);
+  const [showInfluxConfig, setShowInfluxConfig] = useState(false);
+  const [influxUrl, setInfluxUrl] = useState(() => localStorage.getItem('influxUrl') || '');
+  const [influxToken, setInfluxToken] = useState(() => localStorage.getItem('influxToken') || '');
+  const [influxOrg, setInfluxOrg] = useState(() => localStorage.getItem('influxOrg') || '');
+  const [influxBucket, setInfluxBucket] = useState(() => localStorage.getItem('influxBucket') || '');
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [currentSessionData, setCurrentSessionData] = useState(null);
@@ -1483,6 +1488,66 @@ function App() {
     }
   };
 
+  const uploadToInflux = async (data, session) => {
+    if (!influxUrl || !influxToken || !influxOrg || !influxBucket) {
+      alert('⚠️ Veuillez configurer InfluxDB d\'abord (URL, Token, Org, Bucket)');
+      return;
+    }
+
+    setUploadStatus('uploading');
+    addDebugLog('📤 Préparation upload InfluxDB...', 'info');
+
+    try {
+      // Préparer les données pour InfluxDB (format line protocol)
+      const points = data.map(row => {
+        const timestamp = new Date(row.absoluteStartTime).getTime() * 1000000; // Nanoseconds
+        const vehicleName = (session.carName || 'Sans nom').replace(/\s/g, '_');
+        const label = row.label.replace(/\s/g, '_');
+        const duration = parseFloat(row.duration.split(':').reduce((acc, time) => (60 * acc) + +time));
+        
+        // Format Line Protocol: measurement,tag1=value1 field1=value1 timestamp
+        return `driving_events,vehicule=${vehicleName},label=${label} duration=${duration} ${timestamp}`;
+      }).join('\n');
+
+      addDebugLog(`📊 ${data.length} événements préparés`, 'info');
+      
+      // Envoyer à InfluxDB via API v2
+      const url = `${influxUrl}/api/v2/write?org=${influxOrg}&bucket=${influxBucket}&precision=ns`;
+      
+      addDebugLog(`🔗 URL: ${url}`, 'info');
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Token ${influxToken}`,
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Accept': 'application/json'
+        },
+        body: points
+      });
+
+      addDebugLog(`📊 Réponse HTTP: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+      if (response.ok) {
+        addDebugLog(`✅ Upload InfluxDB réussi: ${data.length} événements`, 'success');
+        setUploadStatus('success');
+        alert(`✅ Données envoyées à InfluxDB avec succès!\n\n${data.length} événements\n\nConsultez votre dashboard InfluxDB.`);
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      } else {
+        const errorText = await response.text();
+        addDebugLog(`❌ Erreur InfluxDB: ${errorText}`, 'error');
+        setUploadStatus('error');
+        alert(`❌ Erreur lors de l'envoi à InfluxDB:\n\n${errorText}`);
+        setTimeout(() => setUploadStatus('idle'), 5000);
+      }
+    } catch (error) {
+      addDebugLog(`❌ Erreur InfluxDB: ${error.message}`, 'error');
+      setUploadStatus('error');
+      alert(`❌ Erreur lors de l'envoi à InfluxDB:\n\n${error.message}`);
+      setTimeout(() => setUploadStatus('idle'), 5000);
+    }
+  };
+
   const deleteSession = (sessionId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
       const updatedSessions = sessions.filter(s => s.id !== sessionId);
@@ -1500,7 +1565,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.17-VOCAL10S ✅
+          v6.18-INFLUX ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1762,6 +1827,89 @@ function App() {
                  uploadStatus === 'error' ? 'Erreur' :
                  'Envoyer Drive'}
               </button>
+              <div className="relative w-full sm:w-auto sm:flex-1">
+                <div className="flex w-full">
+                  <button
+                    onClick={() => uploadToInflux(selectedSession.recordings, selectedSession)}
+                    disabled={uploadStatus === 'uploading' || !influxUrl || !influxToken}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 text-white px-6 py-3 rounded-l-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto sm:flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+                  >
+                    <Database size={18} />
+                    {uploadStatus === 'uploading' ? 'Envoi...' : 
+                     uploadStatus === 'success' ? 'Envoyé !' :
+                     uploadStatus === 'error' ? 'Erreur' :
+                     'Envoyer InfluxDB'}
+                  </button>
+                  <button
+                    onClick={() => setShowInfluxConfig(!showInfluxConfig)}
+                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 text-white px-2 py-3 rounded-r-lg border-l border-purple-500 flex-shrink-0"
+                  >
+                    <ChevronDown size={16} className={showInfluxConfig ? 'rotate-180' : ''} />
+                  </button>
+                </div>
+                {showInfluxConfig && (
+                  <div className="absolute top-full left-0 mt-2 p-3 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50 w-80">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <Database size={14} className="inline mr-1" />
+                      Configuration InfluxDB
+                    </label>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">URL</label>
+                        <input
+                          type="text"
+                          value={influxUrl}
+                          onChange={(e) => {
+                            setInfluxUrl(e.target.value);
+                            localStorage.setItem('influxUrl', e.target.value);
+                          }}
+                          placeholder="https://influxdb.example.com"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Token</label>
+                        <input
+                          type="password"
+                          value={influxToken}
+                          onChange={(e) => {
+                            setInfluxToken(e.target.value);
+                            localStorage.setItem('influxToken', e.target.value);
+                          }}
+                          placeholder="token_xxxxxxxxxxxx"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Organization</label>
+                        <input
+                          type="text"
+                          value={influxOrg}
+                          onChange={(e) => {
+                            setInfluxOrg(e.target.value);
+                            localStorage.setItem('influxOrg', e.target.value);
+                          }}
+                          placeholder="my-org"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Bucket</label>
+                        <input
+                          type="text"
+                          value={influxBucket}
+                          onChange={(e) => {
+                            setInfluxBucket(e.target.value);
+                            localStorage.setItem('influxBucket', e.target.value);
+                          }}
+                          placeholder="driving-data"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => downloadCSV(selectedSession.recordings, selectedSession)}
                 className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto sm:flex-1 justify-center"
@@ -2391,6 +2539,86 @@ function App() {
                     <Download size={20} />
                     {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer Drive'}
                   </button>
+                  <div className="relative w-full sm:w-auto sm:flex-1">
+                    <div className="flex w-full">
+                      <button
+                        onClick={() => uploadToInflux(currentSessionData.recordings, currentSessionData)}
+                        disabled={uploadStatus === 'uploading' || !influxUrl || !influxToken}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-l-lg text-base font-semibold inline-flex items-center gap-2 justify-center flex-1"
+                      >
+                        <Database size={20} />
+                        {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer InfluxDB'}
+                      </button>
+                      <button
+                        onClick={() => setShowInfluxConfig(!showInfluxConfig)}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 active:scale-95 text-white px-3 py-4 rounded-r-lg border-l border-purple-500 flex-shrink-0"
+                      >
+                        <ChevronDown size={20} className={showInfluxConfig ? 'rotate-180' : ''} />
+                      </button>
+                    </div>
+                    {showInfluxConfig && (
+                      <div className="absolute top-full left-0 mt-2 p-4 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50 w-80">
+                        <label className="block text-sm font-medium text-slate-300 mb-3">
+                          <Database size={16} className="inline mr-1" />
+                          Configuration InfluxDB
+                        </label>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">URL</label>
+                            <input
+                              type="text"
+                              value={influxUrl}
+                              onChange={(e) => {
+                                setInfluxUrl(e.target.value);
+                                localStorage.setItem('influxUrl', e.target.value);
+                              }}
+                              placeholder="https://influxdb.example.com"
+                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Token</label>
+                            <input
+                              type="password"
+                              value={influxToken}
+                              onChange={(e) => {
+                                setInfluxToken(e.target.value);
+                                localStorage.setItem('influxToken', e.target.value);
+                              }}
+                              placeholder="token_xxxxxxxxxxxx"
+                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Organization</label>
+                            <input
+                              type="text"
+                              value={influxOrg}
+                              onChange={(e) => {
+                                setInfluxOrg(e.target.value);
+                                localStorage.setItem('influxOrg', e.target.value);
+                              }}
+                              placeholder="my-org"
+                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Bucket</label>
+                            <input
+                              type="text"
+                              value={influxBucket}
+                              onChange={(e) => {
+                                setInfluxBucket(e.target.value);
+                                localStorage.setItem('influxBucket', e.target.value);
+                              }}
+                              placeholder="driving-data"
+                              className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={() => downloadCSV(currentSessionData.recordings, currentSessionData)}
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 active:scale-95 text-white px-8 py-4 rounded-lg text-base font-semibold inline-flex items-center gap-2 justify-center w-full sm:w-auto sm:flex-1"
