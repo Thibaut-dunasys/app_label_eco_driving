@@ -171,23 +171,38 @@ function App() {
   useEffect(() => {
     const loadBoitiers = async () => {
       try {
-        //Priorité 1 : Fichier local (public/boitiers.json)
+        // Priorité 1 : Fichier local (public/boitiers.json)
         try {
+          addDebugLog('🔍 Recherche boitiers.json local...', 'info');
           const localResponse = await fetch('/boitiers.json');
+          addDebugLog(`📥 Réponse: ${localResponse.status} ${localResponse.statusText}`, 'info');
+          
           if (localResponse.ok) {
-            const data = await localResponse.json();
-            if (Array.isArray(data) && data.length > 0) {
-              setBoitiersList(data);
-              addDebugLog(`✅ ${data.length} boîtiers chargés (local)`, 'success');
-              return;
+            const contentType = localResponse.headers.get('content-type') || '';
+            const text = await localResponse.text();
+            addDebugLog(`📄 Content-Type: ${contentType}, taille: ${text.length}`, 'info');
+            
+            // Vérifier que c'est bien du JSON et pas du HTML (page 404 React)
+            if (text.trim().startsWith('[') || text.trim().startsWith('{')) {
+              const data = JSON.parse(text);
+              if (Array.isArray(data) && data.length > 0) {
+                setBoitiersList(data);
+                addDebugLog(`✅ ${data.length} boîtiers chargés: ${data.join(', ')}`, 'success');
+                return;
+              } else {
+                addDebugLog('⚠️ Fichier JSON vide ou pas un tableau', 'warning');
+              }
+            } else {
+              addDebugLog('⚠️ Le fichier retourné n\'est pas du JSON (probablement du HTML)', 'warning');
             }
           }
         } catch (e) {
-          // Pas de fichier local, on continue
+          addDebugLog(`⚠️ Erreur fetch local: ${e.message}`, 'warning');
         }
 
         // Priorité 2 : Fichier sur GitHub
         if (githubRepo && githubToken) {
+          addDebugLog('🔍 Recherche boitiers.json sur GitHub...', 'info');
           const url = `https://api.github.com/repos/${githubRepo}/contents/boitiers.json`;
           const response = await fetch(url, {
             headers: {
@@ -201,9 +216,11 @@ function App() {
             const data = JSON.parse(content);
             if (Array.isArray(data) && data.length > 0) {
               setBoitiersList(data);
-              addDebugLog(`✅ ${data.length} boîtiers chargés (GitHub)`, 'success');
+              addDebugLog(`✅ ${data.length} boîtiers chargés (GitHub): ${data.join(', ')}`, 'success');
               return;
             }
+          } else {
+            addDebugLog(`⚠️ GitHub: ${response.status} ${response.statusText}`, 'warning');
           }
         }
 
@@ -214,7 +231,7 @@ function App() {
     };
 
     // Petit délai pour laisser le temps au config GitHub de se charger
-    const timer = setTimeout(loadBoitiers, 500);
+    const timer = setTimeout(loadBoitiers, 1000);
     return () => clearTimeout(timer);
   }, [githubRepo, githubToken]);
 
