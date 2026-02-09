@@ -39,6 +39,8 @@ function App() {
   const [carName, setCarName] = useState('');
   const [isEditingCarName, setIsEditingCarName] = useState(false);
   const [tempCarName, setTempCarName] = useState('');
+  const [boitiersList, setBoitiersList] = useState([]);
+  const [showBoitierDropdown, setShowBoitierDropdown] = useState(false);
   
   const [mode, setMode] = useState('instantane');
   const [clickedLabel, setClickedLabel] = useState(null);
@@ -164,6 +166,57 @@ function App() {
     
     loadGithubConfig();
   }, []);
+
+  // Charger la liste des boîtiers depuis GitHub
+  useEffect(() => {
+    const loadBoitiers = async () => {
+      try {
+        // Priorité 1 : Fichier local (public/boitiers.json)
+        try {
+          const localResponse = await fetch('/boitiers.json');
+          if (localResponse.ok) {
+            const data = await localResponse.json();
+            if (Array.isArray(data) && data.length > 0) {
+              setBoitiersList(data);
+              addDebugLog(`✅ ${data.length} boîtiers chargés (local)`, 'success');
+              return;
+            }
+          }
+        } catch (e) {
+          // Pas de fichier local, on continue
+        }
+
+        // Priorité 2 : Fichier sur GitHub
+        if (githubRepo && githubToken) {
+          const url = `https://api.github.com/repos/${githubRepo}/contents/boitiers.json`;
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `token ${githubToken}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          });
+          if (response.ok) {
+            const fileData = await response.json();
+            const content = atob(fileData.content);
+            const data = JSON.parse(content);
+            if (Array.isArray(data) && data.length > 0) {
+              setBoitiersList(data);
+              addDebugLog(`✅ ${data.length} boîtiers chargés (GitHub)`, 'success');
+              return;
+            }
+          }
+        }
+
+        addDebugLog('⚠️ Aucune liste de boîtiers trouvée', 'warning');
+      } catch (error) {
+        addDebugLog(`❌ Erreur chargement boîtiers: ${error.message}`, 'error');
+      }
+    };
+
+    // Petit délai pour laisser le temps au config GitHub de se charger
+    const timer = setTimeout(loadBoitiers, 500);
+    return () => clearTimeout(timer);
+  }, [githubRepo, githubToken]);
 
   const addDebugLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -501,6 +554,19 @@ function App() {
   const saveCarName = (name) => {
     setCarName(name);
     localStorage.setItem('carName', name);
+    // Mettre à jour le topic MQTT automatiquement
+    if (name && name !== 'Sans nom') {
+      const newTopic = `driving_session/${name}`;
+      setMqttTopic(newTopic);
+      localStorage.setItem('mqttTopic', newTopic);
+      addDebugLog(`📡 Topic MQTT → ${newTopic}`, 'info');
+    }
+  };
+
+  const selectBoitier = (uin) => {
+    saveCarName(uin);
+    setShowBoitierDropdown(false);
+    setIsEditingCarName(false);
   };
 
   const loadSessions = () => {
@@ -1585,7 +1651,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.20-MQTT ✅
+          v6.21-UIN ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2066,48 +2132,85 @@ function App() {
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
           <div className="flex items-center gap-3">
             <Car size={20} className="text-cyan-400" />
-            {isEditingCarName ? (
-              <div className="flex-1 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={tempCarName}
-                  onChange={(e) => setTempCarName(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      saveCarName(tempCarName.trim());
-                      setIsEditingCarName(false);
-                    }
-                  }}
-                  placeholder="Nom de la voiture..."
-                  className="flex-1 px-3 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm"
-                  autoFocus
-                />
+            <div className="flex-1 relative">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Boîtier (UIN)</p>
+                  <span className="text-white font-semibold text-lg">
+                    {carName || 'Aucun boîtier sélectionné'}
+                  </span>
+                  {carName && (
+                    <p className="text-xs text-slate-400 font-mono mt-1">
+                      📡 Topic: driving_session/{carName}
+                    </p>
+                  )}
+                </div>
                 <button
-                  onClick={() => {
-                    saveCarName(tempCarName.trim());
-                    setIsEditingCarName(false);
-                  }}
-                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                  onClick={() => setShowBoitierDropdown(!showBoitierDropdown)}
+                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
                 >
-                  <Check size={18} />
+                  <ChevronDown size={18} className={showBoitierDropdown ? 'rotate-180 transition-transform' : 'transition-transform'} />
                 </button>
               </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-between">
-                <span className="text-white font-medium">
-                  {carName || 'Aucun véhicule'}
-                </span>
-                <button
-                  onClick={() => {
-                    setTempCarName(carName);
-                    setIsEditingCarName(true);
-                  }}
-                  className="p-2 text-cyan-400 hover:text-cyan-300 hover:bg-slate-700 rounded-lg transition-colors"
-                >
-                  <Edit2 size={16} />
-                </button>
-              </div>
-            )}
+
+              {showBoitierDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-700 border border-slate-500 rounded-lg shadow-xl z-50 overflow-hidden">
+                  {boitiersList.length > 0 ? (
+                    <div className="max-h-60 overflow-y-auto">
+                      {boitiersList.map((uin) => (
+                        <button
+                          key={uin}
+                          onClick={() => selectBoitier(uin)}
+                          className={`w-full text-left px-4 py-3 text-sm font-mono transition-colors flex items-center justify-between
+                            ${carName === uin 
+                              ? 'bg-cyan-600 text-white' 
+                              : 'text-slate-200 hover:bg-slate-600 active:bg-slate-500'
+                            }`}
+                        >
+                          <span className="font-semibold">{uin}</span>
+                          {carName === uin && <Check size={16} className="text-white" />}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-6 text-center">
+                      <p className="text-slate-400 text-sm mb-2">Aucun boîtier trouvé</p>
+                      <p className="text-slate-500 text-xs">Ajoutez un fichier boitiers.json sur votre repo GitHub</p>
+                    </div>
+                  )}
+                  
+                  <div className="border-t border-slate-600 p-3">
+                    <p className="text-xs text-slate-400 mb-2">Saisie manuelle :</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={tempCarName}
+                        onChange={(e) => setTempCarName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && tempCarName.trim()) {
+                            selectBoitier(tempCarName.trim());
+                            setTempCarName('');
+                          }
+                        }}
+                        placeholder="UIN..."
+                        className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm font-mono"
+                      />
+                      <button
+                        onClick={() => {
+                          if (tempCarName.trim()) {
+                            selectBoitier(tempCarName.trim());
+                            setTempCarName('');
+                          }
+                        }}
+                        className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors text-sm font-semibold"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
