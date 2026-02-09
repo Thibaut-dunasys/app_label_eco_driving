@@ -1347,6 +1347,7 @@ function App() {
       endDate: endDate,
       duration: formatTime(currentTime),
       carName: carName || 'Sans nom',
+      vehiculeName: selectedVehicule || '',
       recordings: allRecordingsWithGaps
     };
 
@@ -1816,10 +1817,18 @@ function App() {
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <div className="flex-1">
-                        {session.carName && session.carName !== 'Sans nom' && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Car size={16} className="text-cyan-400" />
-                            <span className="text-cyan-400 font-semibold text-sm">{session.carName}</span>
+                        {(session.vehiculeName || (session.carName && session.carName !== 'Sans nom')) && (
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            {session.vehiculeName && (
+                              <span className="text-cyan-400 text-sm">
+                                🚗 {session.vehiculeName}
+                              </span>
+                            )}
+                            {session.carName && session.carName !== 'Sans nom' && (
+                              <span className="text-slate-400 text-sm font-mono">
+                                📡 {session.carName}
+                              </span>
+                            )}
                           </div>
                         )}
                         <div className="flex items-center gap-2 mb-2">
@@ -1871,13 +1880,20 @@ function App() {
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-8">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-6">Détails</h2>
             
-            {selectedSession.carName && selectedSession.carName !== 'Sans nom' && (
-              <div className="bg-cyan-500 bg-opacity-10 border border-cyan-500 border-opacity-30 rounded-lg p-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <Car size={24} className="text-cyan-400" />
-                  <div>
-                    <p className="text-xs text-cyan-300 mb-1">Véhicule</p>
-                    <p className="text-xl font-semibold text-white">{selectedSession.carName}</p>
+            {(selectedSession.carName || selectedSession.vehiculeName) && (
+              <div className="bg-slate-700 rounded-lg p-4 mb-6 border border-slate-600">
+                <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
+                  <Car size={16} className="text-cyan-400" />
+                  Configuration
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <p className="text-xs text-slate-400 mb-1">🚗 Véhicule</p>
+                    <p className="text-white font-semibold">{selectedSession.vehiculeName || '-'}</p>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <p className="text-xs text-slate-400 mb-1">📡 Boîtier (UIN)</p>
+                    <p className="text-white font-semibold font-mono">{selectedSession.carName !== 'Sans nom' ? selectedSession.carName : '-'}</p>
                   </div>
                 </div>
               </div>
