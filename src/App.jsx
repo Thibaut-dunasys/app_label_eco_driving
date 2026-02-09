@@ -41,6 +41,10 @@ function App() {
   const [tempCarName, setTempCarName] = useState('');
   const [boitiersList, setBoitiersList] = useState([]);
   const [showBoitierDropdown, setShowBoitierDropdown] = useState(false);
+  const [vehiculesList, setVehiculesList] = useState([]);
+  const [showVehiculeDropdown, setShowVehiculeDropdown] = useState(false);
+  const [selectedVehicule, setSelectedVehicule] = useState(() => localStorage.getItem('selectedVehicule') || '');
+  const [tempVehicule, setTempVehicule] = useState('');
   
   const [mode, setMode] = useState('instantane');
   const [clickedLabel, setClickedLabel] = useState(null);
@@ -232,6 +236,59 @@ function App() {
 
     // Petit délai pour laisser le temps au config GitHub de se charger
     const timer = setTimeout(loadBoitiers, 1000);
+    return () => clearTimeout(timer);
+  }, [githubRepo, githubToken]);
+
+  // Charger la liste des véhicules
+  useEffect(() => {
+    const loadVehicules = async () => {
+      try {
+        // Priorité 1 : Fichier local (public/vehicules.json)
+        try {
+          const localResponse = await fetch('/vehicules.json');
+          if (localResponse.ok) {
+            const text = await localResponse.text();
+            if (text.trim().startsWith('[') || text.trim().startsWith('{')) {
+              const data = JSON.parse(text);
+              if (Array.isArray(data) && data.length > 0) {
+                setVehiculesList(data);
+                addDebugLog(`✅ ${data.length} véhicules chargés: ${data.join(', ')}`, 'success');
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          addDebugLog(`⚠️ Erreur fetch vehicules local: ${e.message}`, 'warning');
+        }
+
+        // Priorité 2 : Fichier sur GitHub
+        if (githubRepo && githubToken) {
+          const url = `https://api.github.com/repos/${githubRepo}/contents/vehicules.json`;
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': `token ${githubToken}`,
+              'Accept': 'application/vnd.github.v3+json'
+            }
+          });
+          if (response.ok) {
+            const fileData = await response.json();
+            const content = atob(fileData.content);
+            const data = JSON.parse(content);
+            if (Array.isArray(data) && data.length > 0) {
+              setVehiculesList(data);
+              addDebugLog(`✅ ${data.length} véhicules chargés (GitHub)`, 'success');
+              return;
+            }
+          }
+        }
+
+        addDebugLog('⚠️ Aucune liste de véhicules trouvée', 'warning');
+      } catch (error) {
+        addDebugLog(`❌ Erreur chargement véhicules: ${error.message}`, 'error');
+      }
+    };
+
+    const timer = setTimeout(loadVehicules, 1200);
     return () => clearTimeout(timer);
   }, [githubRepo, githubToken]);
 
@@ -584,6 +641,13 @@ function App() {
     saveCarName(uin);
     setShowBoitierDropdown(false);
     setIsEditingCarName(false);
+  };
+
+  const selectVehicule = (name) => {
+    setSelectedVehicule(name);
+    localStorage.setItem('selectedVehicule', name);
+    setShowVehiculeDropdown(false);
+    addDebugLog(`🚗 Véhicule sélectionné: ${name}`, 'info');
   };
 
   const loadSessions = () => {
@@ -1597,7 +1661,8 @@ function App() {
         }
 
         return {
-          vehicule: removeAccents(session.carName || 'Sans nom'),
+          vehicule: removeAccents(selectedVehicule || session.carName || 'Sans nom'),
+          UIN: removeAccents(session.carName || ''),
           label: removeAccents(row.label),
           start_time: formatDateTimeOnly(row.absoluteStartTime),
           start_timestamp: new Date(row.absoluteStartTime).getTime(),
@@ -1668,7 +1733,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.21-UIN ✅
+          v6.22-CONFIG ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -2147,88 +2212,141 @@ function App() {
         </button>
 
         <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-          <div className="flex items-center gap-3">
-            <Car size={20} className="text-cyan-400" />
-            <div className="flex-1 relative">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-slate-400 mb-1">Boîtier (UIN)</p>
-                  <span className="text-white font-semibold text-lg">
-                    {carName || 'Aucun boîtier sélectionné'}
-                  </span>
-                  {carName && (
-                    <p className="text-xs text-slate-400 font-mono mt-1">
-                      📡 Topic: driving_session/{carName}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => setShowBoitierDropdown(!showBoitierDropdown)}
-                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
-                >
-                  <ChevronDown size={18} className={showBoitierDropdown ? 'rotate-180 transition-transform' : 'transition-transform'} />
-                </button>
-              </div>
+          <h3 className="text-white font-semibold mb-4 text-sm flex items-center gap-2">
+            <Car size={18} className="text-cyan-400" />
+            Configuration
+          </h3>
 
-              {showBoitierDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-700 border border-slate-500 rounded-lg shadow-xl z-50 overflow-hidden">
-                  {boitiersList.length > 0 ? (
-                    <div className="max-h-60 overflow-y-auto">
-                      {boitiersList.map((uin) => (
-                        <button
-                          key={uin}
-                          onClick={() => selectBoitier(uin)}
-                          className={`w-full text-left px-4 py-3 text-sm font-mono transition-colors flex items-center justify-between
-                            ${carName === uin 
-                              ? 'bg-cyan-600 text-white' 
-                              : 'text-slate-200 hover:bg-slate-600 active:bg-slate-500'
-                            }`}
-                        >
-                          <span className="font-semibold">{uin}</span>
-                          {carName === uin && <Check size={16} className="text-white" />}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="px-4 py-6 text-center">
-                      <p className="text-slate-400 text-sm mb-2">Aucun boîtier trouvé</p>
-                      <p className="text-slate-500 text-xs">Ajoutez un fichier boitiers.json sur votre repo GitHub</p>
-                    </div>
-                  )}
-                  
-                  <div className="border-t border-slate-600 p-3">
-                    <p className="text-xs text-slate-400 mb-2">Saisie manuelle :</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={tempCarName}
-                        onChange={(e) => setTempCarName(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && tempCarName.trim()) {
-                            selectBoitier(tempCarName.trim());
-                            setTempCarName('');
-                          }
-                        }}
-                        placeholder="UIN..."
-                        className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm font-mono"
-                      />
+          {/* Véhicule */}
+          <div className="mb-3 relative">
+            <div className="flex items-center justify-between bg-slate-700 rounded-lg p-3 border border-slate-600">
+              <div className="flex-1">
+                <p className="text-xs text-slate-400 mb-1">🚗 Véhicule</p>
+                <span className="text-white font-semibold">
+                  {selectedVehicule || 'Non sélectionné'}
+                </span>
+              </div>
+              <button
+                onClick={() => { setShowVehiculeDropdown(!showVehiculeDropdown); setShowBoitierDropdown(false); }}
+                className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
+              >
+                <ChevronDown size={16} className={showVehiculeDropdown ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              </button>
+            </div>
+
+            {showVehiculeDropdown && (
+              <div className="absolute left-0 right-0 mt-1 bg-slate-700 border border-slate-500 rounded-lg shadow-xl z-50 overflow-hidden">
+                {vehiculesList.length > 0 ? (
+                  <div className="max-h-48 overflow-y-auto">
+                    {vehiculesList.map((v) => (
                       <button
-                        onClick={() => {
-                          if (tempCarName.trim()) {
-                            selectBoitier(tempCarName.trim());
-                            setTempCarName('');
-                          }
-                        }}
-                        className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors text-sm font-semibold"
+                        key={v}
+                        onClick={() => selectVehicule(v)}
+                        className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center justify-between
+                          ${selectedVehicule === v 
+                            ? 'bg-cyan-600 text-white' 
+                            : 'text-slate-200 hover:bg-slate-600 active:bg-slate-500'
+                          }`}
                       >
-                        OK
+                        <span className="font-semibold">{v}</span>
+                        {selectedVehicule === v && <Check size={16} className="text-white" />}
                       </button>
-                    </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-4 text-center">
+                    <p className="text-slate-400 text-xs">Ajoutez vehicules.json dans public/</p>
+                  </div>
+                )}
+                <div className="border-t border-slate-600 p-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tempVehicule}
+                      onChange={(e) => setTempVehicule(e.target.value)}
+                      onKeyPress={(e) => { if (e.key === 'Enter' && tempVehicule.trim()) { selectVehicule(tempVehicule.trim()); setTempVehicule(''); } }}
+                      placeholder="Saisie manuelle..."
+                      className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-xs"
+                    />
+                    <button
+                      onClick={() => { if (tempVehicule.trim()) { selectVehicule(tempVehicule.trim()); setTempVehicule(''); } }}
+                      className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors text-xs font-semibold"
+                    >OK</button>
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
+
+          {/* Boîtier (UIN) */}
+          <div className="mb-3 relative">
+            <div className="flex items-center justify-between bg-slate-700 rounded-lg p-3 border border-slate-600">
+              <div className="flex-1">
+                <p className="text-xs text-slate-400 mb-1">📡 Boîtier (UIN)</p>
+                <span className="text-white font-semibold">
+                  {carName || 'Non sélectionné'}
+                </span>
+              </div>
+              <button
+                onClick={() => { setShowBoitierDropdown(!showBoitierDropdown); setShowVehiculeDropdown(false); }}
+                className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
+              >
+                <ChevronDown size={16} className={showBoitierDropdown ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              </button>
+            </div>
+
+            {showBoitierDropdown && (
+              <div className="absolute left-0 right-0 mt-1 bg-slate-700 border border-slate-500 rounded-lg shadow-xl z-50 overflow-hidden">
+                {boitiersList.length > 0 ? (
+                  <div className="max-h-48 overflow-y-auto">
+                    {boitiersList.map((uin) => (
+                      <button
+                        key={uin}
+                        onClick={() => selectBoitier(uin)}
+                        className={`w-full text-left px-4 py-3 text-sm font-mono transition-colors flex items-center justify-between
+                          ${carName === uin 
+                            ? 'bg-cyan-600 text-white' 
+                            : 'text-slate-200 hover:bg-slate-600 active:bg-slate-500'
+                          }`}
+                      >
+                        <span className="font-semibold">{uin}</span>
+                        {carName === uin && <Check size={16} className="text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-4 text-center">
+                    <p className="text-slate-400 text-xs">Ajoutez boitiers.json dans public/</p>
+                  </div>
+                )}
+                <div className="border-t border-slate-600 p-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tempCarName}
+                      onChange={(e) => setTempCarName(e.target.value)}
+                      onKeyPress={(e) => { if (e.key === 'Enter' && tempCarName.trim()) { selectBoitier(tempCarName.trim()); setTempCarName(''); } }}
+                      placeholder="UIN manuelle..."
+                      className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-xs font-mono"
+                    />
+                    <button
+                      onClick={() => { if (tempCarName.trim()) { selectBoitier(tempCarName.trim()); setTempCarName(''); } }}
+                      className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors text-xs font-semibold"
+                    >OK</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Résumé topic */}
+          {carName && (
+            <div className="bg-slate-900 rounded-lg p-3 border border-slate-600">
+              <p className="text-xs text-slate-400 font-mono text-center">
+                📡 Topic MQTT: <span className="text-cyan-400 font-semibold">driving_session/{carName}</span>
+              </p>
+            </div>
+          )}
         </div>
 
 
