@@ -171,7 +171,7 @@ function App() {
   useEffect(() => {
     const loadBoitiers = async () => {
       try {
-        // Priorité 1 : Fichier local (public/boitiers.json)
+        //Priorité 1 : Fichier local (public/boitiers.json)
         try {
           const localResponse = await fetch('/boitiers.json');
           if (localResponse.ok) {
