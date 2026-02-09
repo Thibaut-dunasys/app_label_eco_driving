@@ -17,7 +17,17 @@ function App() {
   const [showGithubConfig, setShowGithubConfig] = useState(false);
   const [showMqttConfig, setShowMqttConfig] = useState(false);
   const [mqttProxyUrl, setMqttProxyUrl] = useState(() => localStorage.getItem('mqttProxyUrl') || '/api/mqtt-proxy');
-  const [mqttTopic, setMqttTopic] = useState(() => localStorage.getItem('mqttTopic') || 'driving/session');
+  const [mqttTopic, setMqttTopic] = useState(() => {
+    const stored = localStorage.getItem('mqttTopic') || '';
+    // Migration: corriger les anciens formats de topic
+    if (stored.startsWith('driving_session/') || stored === 'driving/session') {
+      const uin = stored.replace('driving_session/', '').replace('driving/session', '');
+      const fixed = uin ? `driving/${uin}/session` : 'driving/session';
+      localStorage.setItem('mqttTopic', fixed);
+      return fixed;
+    }
+    return stored || 'driving/session';
+  });
   const [mqttHost, setMqttHost] = useState(() => localStorage.getItem('mqttHost') || '94.23.12.188');
   const [mqttPort, setMqttPort] = useState(() => localStorage.getItem('mqttPort') || '1886');
   const [mqttUsername, setMqttUsername] = useState(() => localStorage.getItem('mqttUsername') || 'thibaut_test');
@@ -1361,7 +1371,7 @@ function App() {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
     
-    const headers = ['vehicule_name', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+    const headers = ['vehicule_name', 'UIN', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
     
     const csvContent = [
       headers.join(','),
@@ -1393,7 +1403,7 @@ function App() {
           ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
           : '[]';
         
-        return `"${removeAccents(session.carName || 'Sans nom')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+        return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -1425,7 +1435,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['vehicule_name', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      const headers = ['vehicule_name', 'UIN', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -1457,7 +1467,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(session.carName || 'Sans nom')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1515,7 +1525,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['vehicule_name', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      const headers = ['vehicule_name', 'UIN', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -1547,7 +1557,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(session.carName || 'Sans nom')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -2059,7 +2069,7 @@ function App() {
                             type="text"
                             value={mqttTopic}
                             onChange={(e) => { setMqttTopic(e.target.value); localStorage.setItem('mqttTopic', e.target.value); }}
-                            placeholder="driving/session"
+                            placeholder="driving/UIN/session"
                             className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
                           />
                         </div>
@@ -2846,7 +2856,7 @@ function App() {
                             </div>
                             <div>
                               <label className="text-xs text-slate-400 block mb-1">Topic</label>
-                              <input type="text" value={mqttTopic} onChange={(e) => { setMqttTopic(e.target.value); localStorage.setItem('mqttTopic', e.target.value); }} placeholder="driving/session" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
+                              <input type="text" value={mqttTopic} onChange={(e) => { setMqttTopic(e.target.value); localStorage.setItem('mqttTopic', e.target.value); }} placeholder="driving/UIN/session" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
                             </div>
                           </div>
                           <div>
