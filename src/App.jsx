@@ -1,6 +1,6 @@
 //lalala
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github, ChevronDown } from 'lucide-react';
+import { Play, Square, Download, ArrowLeft, Clock, Database, Trash2, Smartphone, CheckCircle, AlertTriangle, Bug, Car, Edit2, Check, Mic, Github, ChevronDown, Radio } from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -20,6 +20,13 @@ function App() {
   const [influxToken, setInfluxToken] = useState(() => localStorage.getItem('influxToken') || '');
   const [influxOrg, setInfluxOrg] = useState(() => localStorage.getItem('influxOrg') || '');
   const [influxBucket, setInfluxBucket] = useState(() => localStorage.getItem('influxBucket') || '');
+  const [showMqttConfig, setShowMqttConfig] = useState(false);
+  const [mqttProxyUrl, setMqttProxyUrl] = useState(() => localStorage.getItem('mqttProxyUrl') || '/api/mqtt-proxy');
+  const [mqttTopic, setMqttTopic] = useState(() => localStorage.getItem('mqttTopic') || 'driving/session');
+  const [mqttHost, setMqttHost] = useState(() => localStorage.getItem('mqttHost') || '94.23.12.188');
+  const [mqttPort, setMqttPort] = useState(() => localStorage.getItem('mqttPort') || '1886');
+  const [mqttUsername, setMqttUsername] = useState(() => localStorage.getItem('mqttUsername') || 'thibaut_test');
+  const [mqttPassword, setMqttPassword] = useState(() => localStorage.getItem('mqttPassword') || '90fc5952f3');
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [currentSessionData, setCurrentSessionData] = useState(null);
@@ -1548,6 +1555,143 @@ function App() {
     }
   };
 
+  const uploadToMQTT = async (data, session) => {
+    addDebugLog('📡 Tentative d\'envoi MQTT...', 'info');
+    addDebugLog(`🔗 Proxy: ${mqttProxyUrl}`, 'info');
+    addDebugLog(`📍 Topic: ${mqttTopic}`, 'info');
+    addDebugLog(`🏠 Broker: ${mqttHost}:${mqttPort}`, 'info');
+
+    setUploadStatus('uploading');
+
+    try {
+      const removeAccents = (str) => {
+        return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      };
+
+      // Construire le payload JSON
+      const payload = {
+        session: {
+          id: session.id,
+          vehicule: removeAccents(session.carName || 'Sans nom'),
+          startDate: new Date(session.startDate).toISOString(),
+          endDate: new Date(session.endDate).toISOString(),
+          duration: session.duration,
+          totalEvents: data.length,
+        },
+        events: data.map(row => {
+          const durationParts = row.duration.split(':');
+          let durationSeconds = 0;
+          if (durationParts.length === 2) {
+            const [minutes, secondsWithMs] = durationParts;
+            const [seconds, ms] = secondsWithMs.split('.');
+            durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
+          }
+
+          return {
+            label: removeAccents(row.label),
+            startTime: formatDateTimeOnly(row.absoluteStartTime),
+            endTime: formatDateTimeOnly(row.absoluteEndTime),
+            durationSeconds: parseFloat(durationSeconds.toFixed(2)),
+            imuSamples: row.imuData ? row.imuData.length : 0,
+            imuData: row.imuData && row.imuData.length > 0
+              ? {
+                  ax: row.imuData.map(d => d.ax),
+                  ay: row.imuData.map(d => d.ay),
+                  az: row.imuData.map(d => d.az),
+                  gx: row.imuData.map(d => d.gx),
+                  gy: row.imuData.map(d => d.gy),
+                  gz: row.imuData.map(d => d.gz),
+                }
+              : null,
+          };
+        }),
+      };
+
+      const payloadStr = JSON.stringify(payload);
+      addDebugLog(`📊 Payload: ${(payloadStr.length / 1024).toFixed(1)} KB, ${data.length} événements`, 'info');
+
+      // Si le payload est trop gros (>100KB), on découpe en plusieurs messages
+      const MAX_PAYLOAD_SIZE = 100 * 1024; // 100 KB
+
+      if (payloadStr.length > MAX_PAYLOAD_SIZE) {
+        addDebugLog(`⚠️ Payload trop gros (${(payloadStr.length / 1024).toFixed(0)}KB), envoi par lots...`, 'warning');
+
+        // Envoyer d'abord les métadonnées de session
+        const sessionMeta = {
+          type: 'session_start',
+          session: payload.session,
+          totalParts: Math.ceil(data.length / 5),
+        };
+
+        await sendToMqttProxy(mqttTopic, sessionMeta);
+        addDebugLog(`✅ Métadonnées session envoyées`, 'success');
+
+        // Envoyer les événements par lots de 5
+        const batchSize = 5;
+        for (let i = 0; i < payload.events.length; i += batchSize) {
+          const batch = payload.events.slice(i, i + batchSize);
+          const partNum = Math.floor(i / batchSize) + 1;
+          const totalParts = Math.ceil(payload.events.length / batchSize);
+
+          const batchPayload = {
+            type: 'session_events',
+            sessionId: session.id,
+            part: partNum,
+            totalParts,
+            events: batch,
+          };
+
+          await sendToMqttProxy(mqttTopic, batchPayload);
+          addDebugLog(`✅ Lot ${partNum}/${totalParts} envoyé (${batch.length} events)`, 'success');
+        }
+
+        // Signal de fin
+        await sendToMqttProxy(mqttTopic, {
+          type: 'session_end',
+          sessionId: session.id,
+        });
+
+      } else {
+        // Payload assez petit, envoi en un seul message
+        await sendToMqttProxy(mqttTopic, payload);
+      }
+
+      addDebugLog(`✅ Envoi MQTT réussi !`, 'success');
+      setUploadStatus('success');
+      alert(`✅ Données envoyées via MQTT !\n\nTopic: ${mqttTopic}\nBroker: ${mqttHost}:${mqttPort}\n${data.length} événements`);
+      setTimeout(() => setUploadStatus('idle'), 3000);
+
+    } catch (error) {
+      console.error('Erreur MQTT:', error);
+      addDebugLog(`❌ Erreur MQTT: ${error.message}`, 'error');
+      setUploadStatus('error');
+      alert(`❌ Erreur d'envoi MQTT !\n\n${error.message}\n\nVérifiez la configuration du proxy et du broker.`);
+      setTimeout(() => setUploadStatus('idle'), 5000);
+    }
+  };
+
+  const sendToMqttProxy = async (topic, message) => {
+    const response = await fetch(mqttProxyUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic,
+        message,
+        host: mqttHost,
+        port: parseInt(mqttPort),
+        username: mqttUsername,
+        password: mqttPassword,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  };
+
   const deleteSession = (sessionId) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce trajet ?')) {
       const updatedSessions = sessions.filter(s => s.id !== sessionId);
@@ -1565,7 +1709,7 @@ function App() {
       >
         {/* VERSION INDICATOR - Pour vérifier le déploiement */}
         <div className="fixed bottom-4 right-4 z-50 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow-xl">
-          v6.18-INFLUX ✅
+          v6.19-MQTT ✅
         </div>
         
         {/* Indicateur Pull-to-Refresh */}
@@ -1903,6 +2047,99 @@ function App() {
                             localStorage.setItem('influxBucket', e.target.value);
                           }}
                           placeholder="driving-data"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="relative w-full sm:w-auto sm:flex-1">
+                <div className="flex w-full">
+                  <button
+                    onClick={() => uploadToMQTT(selectedSession.recordings, selectedSession)}
+                    disabled={uploadStatus === 'uploading'}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-white px-6 py-3 rounded-l-lg font-semibold inline-flex items-center gap-2 w-full sm:w-auto sm:flex-1 justify-center disabled:opacity-50 disabled:cursor-not-allowed flex-1"
+                  >
+                    <Radio size={18} />
+                    {uploadStatus === 'uploading' ? 'Envoi...' : 
+                     uploadStatus === 'success' ? 'Envoyé !' :
+                     uploadStatus === 'error' ? 'Erreur' :
+                     'Envoyer MQTT'}
+                  </button>
+                  <button
+                    onClick={() => setShowMqttConfig(!showMqttConfig)}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-white px-2 py-3 rounded-r-lg border-l border-amber-400 flex-shrink-0"
+                  >
+                    <ChevronDown size={16} className={showMqttConfig ? 'rotate-180' : ''} />
+                  </button>
+                </div>
+                {showMqttConfig && (
+                  <div className="absolute top-full left-0 mt-2 p-3 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50 w-80">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      <Radio size={14} className="inline mr-1" />
+                      Configuration MQTT
+                    </label>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">URL Proxy</label>
+                        <input
+                          type="text"
+                          value={mqttProxyUrl}
+                          onChange={(e) => { setMqttProxyUrl(e.target.value); localStorage.setItem('mqttProxyUrl', e.target.value); }}
+                          placeholder="/api/mqtt-proxy"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Host Broker</label>
+                        <input
+                          type="text"
+                          value={mqttHost}
+                          onChange={(e) => { setMqttHost(e.target.value); localStorage.setItem('mqttHost', e.target.value); }}
+                          placeholder="94.23.12.188"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-slate-400 block mb-1">Port</label>
+                          <input
+                            type="text"
+                            value={mqttPort}
+                            onChange={(e) => { setMqttPort(e.target.value); localStorage.setItem('mqttPort', e.target.value); }}
+                            placeholder="1886"
+                            className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 block mb-1">Topic</label>
+                          <input
+                            type="text"
+                            value={mqttTopic}
+                            onChange={(e) => { setMqttTopic(e.target.value); localStorage.setItem('mqttTopic', e.target.value); }}
+                            placeholder="driving/session"
+                            className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Username</label>
+                        <input
+                          type="text"
+                          value={mqttUsername}
+                          onChange={(e) => { setMqttUsername(e.target.value); localStorage.setItem('mqttUsername', e.target.value); }}
+                          placeholder="thibaut_test"
+                          className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 block mb-1">Password</label>
+                        <input
+                          type="password"
+                          value={mqttPassword}
+                          onChange={(e) => { setMqttPassword(e.target.value); localStorage.setItem('mqttPassword', e.target.value); }}
+                          placeholder="••••••••"
                           className="w-full bg-slate-700 text-white px-2 py-1.5 rounded text-xs border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
                         />
                       </div>
@@ -2614,6 +2851,60 @@ function App() {
                               placeholder="driving-data"
                               className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono"
                             />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative w-full sm:w-auto sm:flex-1">
+                    <div className="flex w-full">
+                      <button
+                        onClick={() => uploadToMQTT(currentSessionData.recordings, currentSessionData)}
+                        disabled={uploadStatus === 'uploading'}
+                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 disabled:opacity-50 text-white px-8 py-4 rounded-l-lg text-base font-semibold inline-flex items-center gap-2 justify-center flex-1"
+                      >
+                        <Radio size={20} />
+                        {uploadStatus === 'uploading' ? 'Envoi...' : 'Envoyer MQTT'}
+                      </button>
+                      <button
+                        onClick={() => setShowMqttConfig(!showMqttConfig)}
+                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-95 text-white px-3 py-4 rounded-r-lg border-l border-amber-400 flex-shrink-0"
+                      >
+                        <ChevronDown size={20} className={showMqttConfig ? 'rotate-180' : ''} />
+                      </button>
+                    </div>
+                    {showMqttConfig && (
+                      <div className="absolute top-full left-0 mt-2 p-4 bg-slate-800 rounded-lg border border-slate-600 shadow-xl z-50 w-80">
+                        <label className="block text-sm font-medium text-slate-300 mb-3">
+                          <Radio size={16} className="inline mr-1" />
+                          Configuration MQTT
+                        </label>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">URL Proxy</label>
+                            <input type="text" value={mqttProxyUrl} onChange={(e) => { setMqttProxyUrl(e.target.value); localStorage.setItem('mqttProxyUrl', e.target.value); }} placeholder="/api/mqtt-proxy" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Host Broker</label>
+                            <input type="text" value={mqttHost} onChange={(e) => { setMqttHost(e.target.value); localStorage.setItem('mqttHost', e.target.value); }} placeholder="94.23.12.188" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs text-slate-400 block mb-1">Port</label>
+                              <input type="text" value={mqttPort} onChange={(e) => { setMqttPort(e.target.value); localStorage.setItem('mqttPort', e.target.value); }} placeholder="1886" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
+                            </div>
+                            <div>
+                              <label className="text-xs text-slate-400 block mb-1">Topic</label>
+                              <input type="text" value={mqttTopic} onChange={(e) => { setMqttTopic(e.target.value); localStorage.setItem('mqttTopic', e.target.value); }} placeholder="driving/session" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Username</label>
+                            <input type="text" value={mqttUsername} onChange={(e) => { setMqttUsername(e.target.value); localStorage.setItem('mqttUsername', e.target.value); }} placeholder="thibaut_test" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 block mb-1">Password</label>
+                            <input type="password" value={mqttPassword} onChange={(e) => { setMqttPassword(e.target.value); localStorage.setItem('mqttPassword', e.target.value); }} placeholder="••••••••" className="w-full bg-slate-700 text-white px-3 py-2 rounded text-sm border border-slate-500 focus:border-cyan-400 focus:outline-none font-mono" />
                           </div>
                         </div>
                       </div>
