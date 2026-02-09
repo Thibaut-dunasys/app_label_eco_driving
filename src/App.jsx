@@ -1568,92 +1568,33 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
 
-      // Construire le payload JSON
-      const payload = {
-        session: {
-          id: session.id,
-          vehicule: removeAccents(session.carName || 'Sans nom'),
-          startDate: new Date(session.startDate).toISOString(),
-          endDate: new Date(session.endDate).toISOString(),
-          duration: session.duration,
-          totalEvents: data.length,
-        },
-        events: data.map(row => {
-          const durationParts = row.duration.split(':');
-          let durationSeconds = 0;
-          if (durationParts.length === 2) {
-            const [minutes, secondsWithMs] = durationParts;
-            const [seconds, ms] = secondsWithMs.split('.');
-            durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
-          }
-
-          return {
-            label: removeAccents(row.label),
-            startTime: formatDateTimeOnly(row.absoluteStartTime),
-            endTime: formatDateTimeOnly(row.absoluteEndTime),
-            durationSeconds: parseFloat(durationSeconds.toFixed(2)),
-            imuSamples: row.imuData ? row.imuData.length : 0,
-            imuData: row.imuData && row.imuData.length > 0
-              ? {
-                  ax: row.imuData.map(d => d.ax),
-                  ay: row.imuData.map(d => d.ay),
-                  az: row.imuData.map(d => d.az),
-                  gx: row.imuData.map(d => d.gx),
-                  gy: row.imuData.map(d => d.gy),
-                  gz: row.imuData.map(d => d.gz),
-                }
-              : null,
-          };
-        }),
-      };
-
-      const payloadStr = JSON.stringify(payload);
-      addDebugLog(`📊 Payload: ${(payloadStr.length / 1024).toFixed(1)} KB, ${data.length} événements`, 'info');
-
-      // Si le payload est trop gros (>100KB), on découpe en plusieurs messages
-      const MAX_PAYLOAD_SIZE = 100 * 1024; // 100 KB
-
-      if (payloadStr.length > MAX_PAYLOAD_SIZE) {
-        addDebugLog(`⚠️ Payload trop gros (${(payloadStr.length / 1024).toFixed(0)}KB), envoi par lots...`, 'warning');
-
-        // Envoyer d'abord les métadonnées de session
-        const sessionMeta = {
-          type: 'session_start',
-          session: payload.session,
-          totalParts: Math.ceil(data.length / 5),
-        };
-
-        await sendToMqttProxy(mqttTopic, sessionMeta);
-        addDebugLog(`✅ Métadonnées session envoyées`, 'success');
-
-        // Envoyer les événements par lots de 5
-        const batchSize = 5;
-        for (let i = 0; i < payload.events.length; i += batchSize) {
-          const batch = payload.events.slice(i, i + batchSize);
-          const partNum = Math.floor(i / batchSize) + 1;
-          const totalParts = Math.ceil(payload.events.length / batchSize);
-
-          const batchPayload = {
-            type: 'session_events',
-            sessionId: session.id,
-            part: partNum,
-            totalParts,
-            events: batch,
-          };
-
-          await sendToMqttProxy(mqttTopic, batchPayload);
-          addDebugLog(`✅ Lot ${partNum}/${totalParts} envoyé (${batch.length} events)`, 'success');
+      // Envoyer chaque événement comme un message MQTT individuel
+      const events = data.map(row => {
+        const durationParts = row.duration.split(':');
+        let durationSeconds = 0;
+        if (durationParts.length === 2) {
+          const [minutes, secondsWithMs] = durationParts;
+          const [seconds, ms] = secondsWithMs.split('.');
+          durationSeconds = parseInt(minutes) * 60 + parseInt(seconds) + (ms ? parseInt(ms) / 100 : 0);
         }
 
-        // Signal de fin
-        await sendToMqttProxy(mqttTopic, {
-          type: 'session_end',
-          sessionId: session.id,
-        });
+        return {
+          vehicule: removeAccents(session.carName || 'Sans nom'),
+          label: removeAccents(row.label),
+          start_time: formatDateTimeOnly(row.absoluteStartTime),
+          start_timestamp: new Date(row.absoluteStartTime).getTime(),
+          end_time: formatDateTimeOnly(row.absoluteEndTime),
+          end_timestamp: new Date(row.absoluteEndTime).getTime(),
+          duration: parseFloat(durationSeconds.toFixed(2)),
+        };
+      });
 
-      } else {
-        // Payload assez petit, envoi en un seul message
-        await sendToMqttProxy(mqttTopic, payload);
+      addDebugLog(`📊 ${events.length} événements à envoyer`, 'info');
+
+      // Envoyer chaque événement un par un
+      for (let i = 0; i < events.length; i++) {
+        await sendToMqttProxy(mqttTopic, events[i]);
+        addDebugLog(`✅ Event ${i + 1}/${events.length}: ${events[i].label}`, 'success');
       }
 
       addDebugLog(`✅ Envoi MQTT réussi !`, 'success');
