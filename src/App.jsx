@@ -630,7 +630,7 @@ function App() {
     localStorage.setItem('carName', name);
     // Mettre à jour le topic MQTT automatiquement
     if (name && name !== 'Sans nom') {
-      const newTopic = `driving_session/${name}`;
+      const newTopic = `driving/${name}/session`;
       setMqttTopic(newTopic);
       localStorage.setItem('mqttTopic', newTopic);
       addDebugLog(`📡 Topic MQTT → ${newTopic}`, 'info');
@@ -2343,7 +2343,7 @@ function App() {
           {carName && (
             <div className="bg-slate-900 rounded-lg p-3 border border-slate-600">
               <p className="text-xs text-slate-400 font-mono text-center">
-                📡 Topic MQTT: <span className="text-cyan-400 font-semibold">driving_session/{carName}</span>
+                📡 Topic MQTT: <span className="text-cyan-400 font-semibold">driving/{carName}/session</span>
               </p>
             </div>
           )}
