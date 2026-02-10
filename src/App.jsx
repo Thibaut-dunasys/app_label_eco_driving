@@ -64,6 +64,7 @@ function App() {
   const [pendingLabels, setPendingLabels] = useState({});
   
   const [showDebug, setShowDebug] = useState(false);
+  const [showSensors, setShowSensors] = useState(false);
   const [debugLogs, setDebugLogs] = useState([]);
   
   // Fréquence d'échantillonnage configurable
@@ -2643,105 +2644,102 @@ function App() {
           </div>
         )}
 
-        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 mb-4">
-          <div className="flex justify-between items-center mb-3">
-            <div>
-              <h2 className="text-lg font-semibold text-white">État des capteurs</h2>
-              <p className="text-xs text-slate-400 font-mono mt-1">
-                {isRunning ? `🔴 Enregistrement à ${samplingFrequency}Hz` : `Fréquence: ${samplingFrequency}Hz (${(1000/samplingFrequency).toFixed(0)}ms)`}
-              </p>
+        <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 mb-4">
+          <button
+            onClick={() => setShowSensors(!showSensors)}
+            className="w-full flex items-center justify-between p-4"
+          >
+            <div className="flex items-center gap-3">
+              <h2 className="text-sm font-semibold text-white">État des capteurs</h2>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
+              </span>
+              {isRunning && (
+                <span className="text-xs text-red-400 font-mono">🔴 {samplingFrequency}Hz</span>
+              )}
             </div>
-            <span className={`text-xs px-3 py-1 rounded-full font-mono ${imuPermission ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
-              {imuPermission ? '✓ Actifs' : '✗ Inactifs'}
-            </span>
-          </div>
-          
-          {/* Sélecteur de fréquence */}
-          {!isRunning && (
-            <div className="mb-3 p-3 bg-slate-700 rounded-lg border border-slate-600">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                ⚙️ Fréquence d'échantillonnage
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setSamplingFrequency(2)}
-                  className={`py-3 px-4 rounded-lg font-mono text-sm font-bold transition-all ${
-                    samplingFrequency === 2
-                      ? 'bg-cyan-500 text-white shadow-lg scale-105'
-                      : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
-                  }`}
-                >
-                  <div className="text-lg mb-1">2Hz</div>
-                  <div className="text-xs opacity-75 font-normal">Recommandé</div>
-                </button>
-                <button
-                  onClick={() => setSamplingFrequency(4)}
-                  className={`py-3 px-4 rounded-lg font-mono text-sm font-bold transition-all ${
-                    samplingFrequency === 4
-                      ? 'bg-cyan-500 text-white shadow-lg scale-105'
-                      : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
-                  }`}
-                >
-                  <div className="text-lg mb-1">4Hz</div>
-                  <div className="text-xs opacity-75 font-normal">Haute résolution</div>
-                </button>
+            <ChevronDown size={18} className={`text-slate-400 transition-transform ${showSensors ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showSensors && (
+            <div className="px-4 pb-4">
+              {/* Sélecteur de fréquence */}
+              {!isRunning && (
+                <div className="mb-3 p-3 bg-slate-700 rounded-lg border border-slate-600">
+                  <label className="block text-xs font-medium text-slate-300 mb-2">
+                    ⚙️ Fréquence d'échantillonnage
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setSamplingFrequency(2)}
+                      className={`py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all ${
+                        samplingFrequency === 2
+                          ? 'bg-cyan-500 text-white shadow-lg'
+                          : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                      }`}
+                    >
+                      2Hz <span className="font-normal opacity-75">Recommandé</span>
+                    </button>
+                    <button
+                      onClick={() => setSamplingFrequency(4)}
+                      className={`py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all ${
+                        samplingFrequency === 4
+                          ? 'bg-cyan-500 text-white shadow-lg'
+                          : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                      }`}
+                    >
+                      4Hz <span className="font-normal opacity-75">Haute résolution</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                <div className="bg-slate-700 rounded p-2 border border-slate-600">
+                  <p className="text-slate-400 text-[10px] font-mono mb-0.5">Acc X</p>
+                  <p className={`text-sm font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
+                    {imuPermission ? imuData.ax : '--'}
+                  </p>
+                </div>
+                <div className="bg-slate-700 rounded p-2 border border-slate-600">
+                  <p className="text-slate-400 text-[10px] font-mono mb-0.5">Acc Y</p>
+                  <p className={`text-sm font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
+                    {imuPermission ? imuData.ay : '--'}
+                  </p>
+                </div>
+                <div className="bg-slate-700 rounded p-2 border border-slate-600">
+                  <p className="text-slate-400 text-[10px] font-mono mb-0.5">Acc Z</p>
+                  <p className={`text-sm font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
+                    {imuPermission ? imuData.az : '--'}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-slate-400 mt-2 font-mono">
-                {samplingFrequency === 2 ? (
-                  <>⭐ Ultra fiable | 20 mesures/10s | Économe</>
-                ) : (
-                  <>🔬 Plus de détails | 40 mesures/10s</>
-                )}
-              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-slate-700 rounded p-2 border border-slate-600">
+                  <p className="text-slate-400 text-[10px] font-mono mb-0.5">Gyro X</p>
+                  <p className={`text-sm font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
+                    {imuPermission ? imuData.gx : '--'}
+                  </p>
+                </div>
+                <div className="bg-slate-700 rounded p-2 border border-slate-600">
+                  <p className="text-slate-400 text-[10px] font-mono mb-0.5">Gyro Y</p>
+                  <p className={`text-sm font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
+                    {imuPermission ? imuData.gy : '--'}
+                  </p>
+                </div>
+                <div className="bg-slate-700 rounded p-2 border border-slate-600">
+                  <p className="text-slate-400 text-[10px] font-mono mb-0.5">Gyro Z</p>
+                  <p className={`text-sm font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
+                    {imuPermission ? imuData.gz : '--'}
+                  </p>
+                </div>
+              </div>
+              {!imuPermission && (
+                <p className="text-amber-400 text-xs mt-2 text-center">
+                  ⚠️ Autorisez les capteurs pour voir les données en temps réel
+                </p>
+              )}
             </div>
-          )}
-          
-          {/* Configuration GitHub - Maintenant accessible via flèche sur boutons export */}
-          
-          <div className="grid grid-cols-3 gap-2 mb-2">
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Acc X</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.ax : '--'}
-              </p>
-            </div>
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Acc Y</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.ay : '--'}
-              </p>
-            </div>
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Acc Z</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-cyan-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.az : '--'}
-              </p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Gyro X</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.gx : '--'}
-              </p>
-            </div>
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Gyro Y</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.gy : '--'}
-              </p>
-            </div>
-            <div className="bg-slate-700 rounded p-3 border border-slate-600">
-              <p className="text-slate-400 text-xs font-mono mb-1">Gyro Z</p>
-              <p className={`text-lg font-bold font-mono ${imuPermission ? 'text-purple-400' : 'text-slate-500'}`}>
-                {imuPermission ? imuData.gz : '--'}
-              </p>
-            </div>
-          </div>
-          {!imuPermission && (
-            <p className="text-amber-400 text-xs mt-3 text-center">
-              ⚠️ Autorisez les capteurs pour voir les données en temps réel
-            </p>
           )}
         </div>
 
