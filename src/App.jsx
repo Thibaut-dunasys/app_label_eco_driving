@@ -55,6 +55,9 @@ function App() {
   const [showVehiculeDropdown, setShowVehiculeDropdown] = useState(false);
   const [selectedVehicule, setSelectedVehicule] = useState(() => localStorage.getItem('selectedVehicule') || '');
   const [tempVehicule, setTempVehicule] = useState('');
+  const [driverName, setDriverName] = useState(() => localStorage.getItem('driverName') || '');
+  const [tempDriverName, setTempDriverName] = useState('');
+  const [isEditingDriver, setIsEditingDriver] = useState(false);
   
   const [mode, setMode] = useState('instantane');
   const [clickedLabel, setClickedLabel] = useState(null);
@@ -1348,6 +1351,7 @@ function App() {
       duration: formatTime(currentTime),
       carName: carName || 'Sans nom',
       vehiculeName: selectedVehicule || '',
+      driverName: driverName || '',
       recordings: allRecordingsWithGaps
     };
 
@@ -1372,7 +1376,7 @@ function App() {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
     
-    const headers = ['vehicule_name', 'UIN', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+    const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
     
     const csvContent = [
       headers.join(','),
@@ -1404,7 +1408,7 @@ function App() {
           ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
           : '[]';
         
-        return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+        return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -1436,7 +1440,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['vehicule_name', 'UIN', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -1468,7 +1472,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1526,7 +1530,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['vehicule_name', 'UIN', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -1558,7 +1562,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1674,6 +1678,7 @@ function App() {
         return {
           vehicule: removeAccents(selectedVehicule || session.carName || 'Sans nom'),
           UIN: removeAccents(session.carName || ''),
+          conducteur: removeAccents(driverName || ''),
           label: removeAccents(row.label),
           start_time: formatDateTimeOnly(row.absoluteStartTime),
           start_timestamp: new Date(row.absoluteStartTime).getTime(),
@@ -1817,7 +1822,7 @@ function App() {
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <div className="flex-1">
-                        {(session.vehiculeName || (session.carName && session.carName !== 'Sans nom')) && (
+                        {(session.vehiculeName || (session.carName && session.carName !== 'Sans nom') || session.driverName) && (
                           <div className="flex items-center gap-3 mb-2 flex-wrap">
                             {session.vehiculeName && (
                               <span className="text-cyan-400 text-sm">
@@ -1827,6 +1832,11 @@ function App() {
                             {session.carName && session.carName !== 'Sans nom' && (
                               <span className="text-slate-400 text-sm font-mono">
                                 📡 {session.carName}
+                              </span>
+                            )}
+                            {session.driverName && (
+                              <span className="text-slate-400 text-sm">
+                                👤 {session.driverName}
                               </span>
                             )}
                           </div>
@@ -1880,20 +1890,24 @@ function App() {
           <div className="bg-slate-800 rounded-xl shadow-lg border border-slate-600 p-4 sm:p-8">
             <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-6">Détails</h2>
             
-            {(selectedSession.carName || selectedSession.vehiculeName) && (
+            {(selectedSession.carName || selectedSession.vehiculeName || selectedSession.driverName) && (
               <div className="bg-slate-700 rounded-lg p-4 mb-6 border border-slate-600">
                 <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-2">
                   <Car size={16} className="text-cyan-400" />
                   Configuration
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="bg-slate-800 rounded-lg p-3 border border-slate-600">
                     <p className="text-xs text-slate-400 mb-1">🚗 Véhicule</p>
                     <p className="text-white font-semibold">{selectedSession.vehiculeName || '-'}</p>
                   </div>
                   <div className="bg-slate-800 rounded-lg p-3 border border-slate-600">
-                    <p className="text-xs text-slate-400 mb-1">📡 Boîtier (UIN)</p>
+                    <p className="text-xs text-slate-400 mb-1">📡 Boîtier</p>
                     <p className="text-white font-semibold font-mono">{selectedSession.carName !== 'Sans nom' ? selectedSession.carName : '-'}</p>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                    <p className="text-xs text-slate-400 mb-1">👤 Conducteur</p>
+                    <p className="text-white font-semibold">{selectedSession.driverName || '-'}</p>
                   </div>
                 </div>
               </div>
@@ -2363,6 +2377,54 @@ function App() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Conducteur */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between bg-slate-700 rounded-lg p-3 border border-slate-600">
+              <div className="flex-1">
+                <p className="text-xs text-slate-400 mb-1">👤 Conducteur</p>
+                {isEditingDriver ? (
+                  <div className="flex gap-2 mt-1">
+                    <input
+                      type="text"
+                      value={tempDriverName}
+                      onChange={(e) => setTempDriverName(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          setDriverName(tempDriverName.trim());
+                          localStorage.setItem('driverName', tempDriverName.trim());
+                          setIsEditingDriver(false);
+                        }
+                      }}
+                      placeholder="Nom du conducteur..."
+                      className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm"
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => {
+                        setDriverName(tempDriverName.trim());
+                        localStorage.setItem('driverName', tempDriverName.trim());
+                        setIsEditingDriver(false);
+                      }}
+                      className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors text-xs font-semibold"
+                    >OK</button>
+                  </div>
+                ) : (
+                  <span className="text-white font-semibold">
+                    {driverName || 'Non renseigné'}
+                  </span>
+                )}
+              </div>
+              {!isEditingDriver && (
+                <button
+                  onClick={() => { setTempDriverName(driverName); setIsEditingDriver(true); }}
+                  className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
+                >
+                  <Edit2 size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Résumé topic */}
