@@ -1073,6 +1073,7 @@ function App() {
         newRecordings.push({
           id: Date.now(),
           label: 'Conduite non agressive',
+          mode: 'auto',
           startTime: formatTime(initStartTime),
           endTime: formatTime(Math.max(0, initEndTime)),
           duration: formatTime(Math.max(0, initEndTime)),
@@ -1128,6 +1129,7 @@ function App() {
         setRecordings(prev => [...prev, {
           id: Date.now() + Math.random(),
           label: labelName,
+          mode: mode === 'vocal' ? 'vocal-10s' : 'instantane-5/+5',
           startTime: formatTime(Math.max(0, startTime10sBefore)),
           endTime: formatTime(finalTime),
           duration: formatTime(duration),
@@ -1152,6 +1154,7 @@ function App() {
       
       newRecordings.push({
         label: 'Conduite non agressive',
+          mode: 'auto',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
         duration: formatTime(currentTime),
@@ -1174,6 +1177,7 @@ function App() {
       
       newRecordings.push({
         label: labelName,
+        mode: 'borne',
         startTime: formatTime(startTimeLabel),
         endTime: formatTime(currentTime),
         duration: formatTime(currentTime - startTimeLabel),
@@ -1195,6 +1199,7 @@ function App() {
         
         newRecordings.push({
           label: labels.find(l => l.id === activeLabelId).name,
+          mode: 'borne',
           startTime: formatTime(startTimeLabel),
           endTime: formatTime(currentTime),
           duration: formatTime(currentTime - startTimeLabel),
@@ -1228,6 +1233,7 @@ function App() {
     if (finalRecordings.length === 0 && Object.keys(activeLabels).length === 0) {
       finalRecordings.push({
         label: 'Conduite non agressive',
+          mode: 'auto',
         startTime: formatTime(0),
         endTime: formatTime(currentTime),
         duration: formatTime(currentTime),
@@ -1278,6 +1284,7 @@ function App() {
           
           allRecordingsWithGaps.push({
             label: 'Conduite non agressive',
+          mode: 'auto',
             startTime: formatTime(0),
             endTime: formatTime(gapEnd - sessionStart),
             duration: formatTime(duration),
@@ -1305,6 +1312,7 @@ function App() {
             
             allRecordingsWithGaps.push({
               label: 'Conduite non agressive',
+          mode: 'auto',
               startTime: formatTime(currentEnd - sessionStart),
               endTime: formatTime(nextStart - sessionStart),
               duration: formatTime(gapDuration),
@@ -1328,6 +1336,7 @@ function App() {
           
           allRecordingsWithGaps.push({
             label: 'Conduite non agressive',
+          mode: 'auto',
             startTime: formatTime(lastEnd - sessionStart),
             endTime: formatTime(currentTime),
             duration: formatTime(gapDuration),
@@ -1377,7 +1386,7 @@ function App() {
       return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     };
     
-    const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+    const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'mode', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
     
     const csvContent = [
       headers.join(','),
@@ -1409,7 +1418,7 @@ function App() {
           ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
           : '[]';
         
-        return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+        return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${row.mode || ''}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
       })
     ].join('\n');
 
@@ -1441,7 +1450,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'mode', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -1473,7 +1482,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${row.mode || ''}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1531,7 +1540,7 @@ function App() {
         return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
       
-      const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
+      const headers = ['vehicule_name', 'UIN', 'conducteur', 'Label', 'mode', 'Start_time', 'End_time', 'Duration', 'Acceleration X', 'Acceleration Y', 'Acceleration Z', 'Gyroscope X', 'Gyroscope Y', 'Gyroscope Z'];
       
       const csvContent = [
         headers.join(','),
@@ -1563,7 +1572,7 @@ function App() {
             ? '[' + row.imuData.map(d => d.gz).join(',') + ']'
             : '[]';
           
-          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
+          return `"${removeAccents(selectedVehicule || session.carName || 'Sans nom')}","${removeAccents(session.carName || '')}","${removeAccents(driverName || '')}","${removeAccents(row.label)}","${row.mode || ''}","${formatDateTimeOnly(row.absoluteStartTime)}","${formatDateTimeOnly(row.absoluteEndTime)}",${durationSeconds.toFixed(2)},"${axList}","${ayList}","${azList}","${gxList}","${gyList}","${gzList}"`;
         })
       ].join('\n');
 
@@ -1681,6 +1690,7 @@ function App() {
           UIN: removeAccents(session.carName || ''),
           conducteur: removeAccents(driverName || ''),
           label: removeAccents(row.label),
+          mode: row.mode || '',
           start_time: formatDateTimeOnly(row.absoluteStartTime),
           start_timestamp: new Date(row.absoluteStartTime).getTime(),
           end_time: formatDateTimeOnly(row.absoluteEndTime),
@@ -2519,7 +2529,7 @@ function App() {
               {mode === 'instantane' 
                 ? '⚡ Cliquez pendant l\'événement (capture 5s avant + 5s après)' 
                 : mode === 'vocal'
-                  ? '🎤 Dictez les labels à voix haute (capture 5s avant + 5s après)'
+                  ? '🎤 Dictez les labels à voix haute (capture 10s avant)'
                   : '📌 Appuyez 1× au début, 1× à la fin de l\'événement'}
             </p>
           )}
