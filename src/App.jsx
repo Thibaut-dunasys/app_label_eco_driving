@@ -1056,16 +1056,20 @@ function App() {
     const labelName = labels.find(l => l.id === labelId).name;
     
     if (mode === 'instantane' || mode === 'vocal') {
+      // Fenêtres de capture différentes selon le mode
+      const WINDOW_BEFORE = mode === 'instantane' ? 5000 : 10000; // -5s instantané, -10s vocal
+      const WINDOW_AFTER  = mode === 'instantane' ? 5000 : 100;   // +5s instantané, 0s vocal
+
       if (recordings.length === 0 && Object.keys(pendingLabels).length === 0) {
         let initStartTime = 0;
-        let initEndTime = currentTime - 10000;
+        let initEndTime = currentTime - WINDOW_BEFORE;
         
         if (initEndTime < 0) {
           initEndTime = 0;
         }
         
         const initImuData = imuHistory.filter(d => 
-          d.timestamp <= (currentTimestamp - 10000) || d.timestamp <= sessionStartDate.getTime()
+          d.timestamp <= (currentTimestamp - WINDOW_BEFORE) || d.timestamp <= sessionStartDate.getTime()
         );
         
         addDebugLog(`📝 Init (mode ${mode}): ${initImuData.length} mesures`, 'info');
@@ -1096,14 +1100,14 @@ function App() {
         }
       }));
       
-      addDebugLog(`⏳ ${labelName} - Enregistrement immédiat (10s avant)`, 'info');
+      addDebugLog(`⏳ ${labelName} - ${mode === 'instantane' ? '5s avant + attente 5s après' : '10s avant'}`, 'info');
       
       setTimeout(() => {
         const finalTime = Date.now() - startTime;
         const finalTimestamp = Date.now();
         
-        let startTime10sBefore = currentTime - 10000;
-        let startTimestamp10sBefore = currentTimestamp - 10000;
+        let startTimeBefore = currentTime - WINDOW_BEFORE;
+        let startTimestampBefore = currentTimestamp - WINDOW_BEFORE;
         
         const currentRecordings = [...recordings];
         if (currentRecordings.length > 0) {
@@ -1111,29 +1115,29 @@ function App() {
           const lastEndTime = lastRecording.absoluteEndTime.getTime();
           const timeSinceLastEvent = currentTimestamp - lastEndTime;
           
-          if (timeSinceLastEvent < 10000) {
-            startTimestamp10sBefore = lastEndTime;
-            startTime10sBefore = currentTime - timeSinceLastEvent;
+          if (timeSinceLastEvent < WINDOW_BEFORE) {
+            startTimestampBefore = lastEndTime;
+            startTimeBefore = currentTime - timeSinceLastEvent;
             addDebugLog(`🔗 Événement proche détecté : ${Math.round(timeSinceLastEvent/1000)}s depuis le dernier`, 'info');
           }
         }
         
         const periodImuData = imuHistory.filter(d => 
-          d.timestamp >= startTimestamp10sBefore && d.timestamp <= finalTimestamp
+          d.timestamp >= startTimestampBefore && d.timestamp <= finalTimestamp
         );
         
         const nonZero = periodImuData.filter(d => d.ax !== 0 || d.ay !== 0 || d.az !== 0 || d.gx !== 0 || d.gy !== 0 || d.gz !== 0).length;
-        const duration = finalTime - startTime10sBefore;
+        const duration = finalTime - startTimeBefore;
         addDebugLog(`⚡ ${labelName} (${Math.round(duration/1000)}s): ${periodImuData.length} mesures (${nonZero} non-null)`, 'success');
         
         setRecordings(prev => [...prev, {
           id: Date.now() + Math.random(),
           label: labelName,
           mode: mode === 'vocal' ? 'vocal-10s' : 'instantane-5/+5',
-          startTime: formatTime(Math.max(0, startTime10sBefore)),
+          startTime: formatTime(Math.max(0, startTimeBefore)),
           endTime: formatTime(finalTime),
           duration: formatTime(duration),
-          absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, startTime10sBefore)),
+          absoluteStartTime: new Date(sessionStartDate.getTime() + Math.max(0, startTimeBefore)),
           absoluteEndTime: new Date(sessionStartDate.getTime() + finalTime),
           imuData: periodImuData
         }]);
@@ -1143,7 +1147,7 @@ function App() {
           delete updated[pendingKey];
           return updated;
         });
-      }, 100);
+      }, WINDOW_AFTER);
       
       return;
     }
