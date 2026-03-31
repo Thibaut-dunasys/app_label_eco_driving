@@ -55,6 +55,7 @@ function App() {
   const [showVehiculeDropdown, setShowVehiculeDropdown] = useState(false);
   const [selectedVehicule, setSelectedVehicule] = useState(() => localStorage.getItem('selectedVehicule') || '');
   const [tempVehicule, setTempVehicule] = useState('');
+  const [isEditingVehicule, setIsEditingVehicule] = useState(false);
   const [driverName, setDriverName] = useState(() => localStorage.getItem('driverName') || '');
   const [tempDriverName, setTempDriverName] = useState('');
   const [isEditingDriver, setIsEditingDriver] = useState(false);
@@ -661,6 +662,7 @@ function App() {
     setSelectedVehicule(name);
     localStorage.setItem('selectedVehicule', name);
     setShowVehiculeDropdown(false);
+    setIsEditingVehicule(false);
     addDebugLog(`🚗 Véhicule sélectionné: ${name}`, 'info');
   };
 
@@ -2277,57 +2279,77 @@ function App() {
             <div className="flex items-center justify-between bg-slate-700 rounded-lg p-3 border border-slate-600">
               <div className="flex-1">
                 <p className="text-xs text-slate-400 mb-1">🚗 Véhicule</p>
-                <span className="text-white font-semibold">
-                  {selectedVehicule || 'Non sélectionné'}
-                </span>
-              </div>
-              <button
-                onClick={() => { setShowVehiculeDropdown(!showVehiculeDropdown); setShowBoitierDropdown(false); }}
-                className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
-              >
-                <ChevronDown size={16} className={showVehiculeDropdown ? 'rotate-180 transition-transform' : 'transition-transform'} />
-              </button>
-            </div>
-
-            {showVehiculeDropdown && (
-              <div className="absolute left-0 right-0 mt-1 bg-slate-700 border border-slate-500 rounded-lg shadow-xl z-50 overflow-hidden">
-                {vehiculesList.length > 0 ? (
-                  <div className="max-h-48 overflow-y-auto">
-                    {vehiculesList.map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => selectVehicule(v)}
-                        className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center justify-between
-                          ${selectedVehicule === v 
-                            ? 'bg-cyan-600 text-white' 
-                            : 'text-slate-200 hover:bg-slate-600 active:bg-slate-500'
-                          }`}
-                      >
-                        <span className="font-semibold">{v}</span>
-                        {selectedVehicule === v && <Check size={16} className="text-white" />}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-4 py-4 text-center">
-                    <p className="text-slate-400 text-xs">Ajoutez vehicules.json dans public/</p>
-                  </div>
-                )}
-                <div className="border-t border-slate-600 p-2">
-                  <div className="flex gap-2">
+                {isEditingVehicule ? (
+                  <div className="flex gap-2 mt-1">
                     <input
                       type="text"
                       value={tempVehicule}
                       onChange={(e) => setTempVehicule(e.target.value)}
-                      onKeyPress={(e) => { if (e.key === 'Enter' && tempVehicule.trim()) { selectVehicule(tempVehicule.trim()); setTempVehicule(''); } }}
-                      placeholder="Saisie manuelle..."
-                      className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-xs"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          selectVehicule(tempVehicule.trim());
+                          setTempVehicule('');
+                        }
+                      }}
+                      placeholder="Nom du véhicule..."
+                      className="flex-1 px-3 py-2 bg-slate-800 text-white rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none text-sm"
+                      autoFocus
                     />
                     <button
-                      onClick={() => { if (tempVehicule.trim()) { selectVehicule(tempVehicule.trim()); setTempVehicule(''); } }}
+                      onClick={() => {
+                        if (tempVehicule.trim()) {
+                          selectVehicule(tempVehicule.trim());
+                          setTempVehicule('');
+                        } else {
+                          setIsEditingVehicule(false);
+                        }
+                      }}
                       className="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors text-xs font-semibold"
                     >OK</button>
                   </div>
+                ) : (
+                  <span className="text-white font-semibold">
+                    {selectedVehicule || 'Non renseigné'}
+                  </span>
+                )}
+              </div>
+              {!isEditingVehicule && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => { setTempVehicule(selectedVehicule); setIsEditingVehicule(true); setShowVehiculeDropdown(false); }}
+                    className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  {vehiculesList.length > 0 && (
+                    <button
+                      onClick={() => { setShowVehiculeDropdown(!showVehiculeDropdown); setShowBoitierDropdown(false); setIsEditingVehicule(false); }}
+                      className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors active:scale-95"
+                    >
+                      <ChevronDown size={16} className={showVehiculeDropdown ? 'rotate-180 transition-transform' : 'transition-transform'} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {showVehiculeDropdown && !isEditingVehicule && (
+              <div className="absolute left-0 right-0 mt-1 bg-slate-700 border border-slate-500 rounded-lg shadow-xl z-50 overflow-hidden">
+                <div className="max-h-48 overflow-y-auto">
+                  {vehiculesList.map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => selectVehicule(v)}
+                      className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center justify-between
+                        ${selectedVehicule === v 
+                          ? 'bg-cyan-600 text-white' 
+                          : 'text-slate-200 hover:bg-slate-600 active:bg-slate-500'
+                        }`}
+                    >
+                      <span className="font-semibold">{v}</span>
+                      {selectedVehicule === v && <Check size={16} className="text-white" />}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
